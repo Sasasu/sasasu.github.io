@@ -1,0 +1,74 @@
+==================================================================
+https://keybase.io/sasasu
+--------------------------------------------------------------------
+
+I hereby claim:
+
+  * I am an admin of https://sasasu.github.io
+  * I am sasasu (https://keybase.io/sasasu) on keybase.
+  * I have a public key with fingerprint 243C 14E5 339E 1B88 EDCB  29C5 95FC 83B3 084A 5ADD
+
+To do so, I am signing this object:
+
+{
+  "body": {
+    "key": {
+      "eldest_kid": "01016e5eb2ad5bda81637d56f43be4b42629de4714c00c2830b72270f8e200df13880a",
+      "fingerprint": "243c14e5339e1b88edcb29c595fc83b3084a5add",
+      "host": "keybase.io",
+      "key_id": "95fc83b3084a5add",
+      "kid": "0101fd783374ba797e803fc635069200bd4fd6555395b9e82af8a3cd2bee911c8b320a",
+      "uid": "7ed0876a8712e23f3545e6b30b4ced19",
+      "username": "sasasu"
+    },
+    "service": {
+      "hostname": "sasasu.github.io",
+      "protocol": "https:"
+    },
+    "type": "web_service_binding",
+    "version": 1
+  },
+  "ctime": 1508034187,
+  "expire_in": 157680000,
+  "prev": "c7359db62d368b4fc7c419bc5850b4f2ae81e2c65ee1d24584989480f704c57e",
+  "seqno": 35,
+  "tag": "signature"
+}
+
+which yields the signature:
+
+-----BEGIN PGP MESSAGE-----
+
+owFtUn9MVVUcB1NB1MjGmNPCcfcITIT769x7LrMBMRVEdGoUPm14zz3n8m7oe4/3
+Hr9ziSSFzhQoEBuUunTQIPUl0hAYM7DCGpoi1JOYIK9nkBmCpqTdR7nW1jl/nJ3v
+9/P9fD+f774H5z/l4+/7wVSx03+N8bpvtwf5bL7RVVVIIQvOp2IKqUwy/ZDtmNgd
+6ZkapmIomqEZgQCCWBkDhGXICJyIgaDyHCI84lmBlTDhRYZXaFphIUcjkWVFWoWE
+pWmsMhyEtExFUqpmziA2q00zO3RalucUhieA4yTCIAgJVhArKUACqgI5xNGQl4GM
+sV5osti9Fbo4JNtJlGbRY/onfVre/+D/1a1iEXKcyCNZlEQCaU5VBA7QgqQrQ5hX
+sQAA4CSAJAJZWYUyp2AWESIxjAIRx07rzp6mEwmmoSjIUGRYwnIqB3hABL0v4hWC
+GckLtBObWd5BdLRd1m82tTOS0mM5mkK8Y/X6+E8+KkNzmLLR346sNovDoli261mT
+w2G1x3irHflWLzyXoPR/iNKRZsb6JPWKHGKzaxYzFcPoSMWheZkZQOs2eQaKkRTJ
+s2o2kq55EUAUIK0fbx+So1MqIgekLRgJLOYEiHhVERWekZACINA9qaxMIENYRQCE
+MJjlAeQlKPGQVkWaV4BIKK+3LLOFiuGALlTO8NrSMsyyI9tGqJ0BpTO4mT6+/j7P
+B4fONKwIusnVLn53rHtp55P1mzXDu3s+AXOeeRIZnx34uKD//oTxDnu7IXWwrftQ
+85WtPTdmO80JFcmJfR/HHWs0XnPXd7t6F0U/dq7r6An5ZE5us7OIGaq/3Z7TURTc
+dnXD8fCEmsH1LUmbln2ttYeEnvx929Oe4V2/mvYfK4sDvKHpVmjB9eKL7zeMhHxb
+BRbXzlv+KHveeN3dwJzS6rU9MOiia7CkvaBseeqPF1Psib2PsoJ+S7Su97sWEJPm
+CHaujSgY/vl+vQ2vDldfrIgwJu1f3V2ee/L0h/WHBdAzZN77+Jbt1Nm+hqHCM69m
+djZ5XvijxnDnC3cY7lp2L8v9+eimq/2pCxoNcy2lvn27J0a+zB3PurAuoGLglPXP
+HReupDiaGyozSy4fSCxJq0K7OsaSo2peT6k5umTV3ro9i4pbX8ozSD9FdC14tpoc
+BZcC3h6Yqn44VL4xfmL4xKrYyxtGH47mfW/8bkVl2jdLV7rKDq9YCMNwXP3Kdldj
+T8CB2C3RD+6irX1H6pPXuMfy6opa3mqZ3/pRywm+sbEp3LC3bzK0YPfmyUuDwX7x
+4XV+S2z9w51MtPKGp+30O+/tUvySykd8Ngz84ByZO7WpJm/UZehwjZx7uVfG5Zlt
+S6smO5/LL0fRv5z3tJpN8puxriPHTcabCRsPeh58lnZoT2Vq3r6JWduWuAONX4W9
+8pq71tlVdvacc6jVPZDTc+/8meCieHlhe++nTeP8Xw==
+=OUI3
+-----END PGP MESSAGE-----
+
+And finally, I am proving ownership of this host by posting or
+appending to this document.
+
+View my publicly-auditable identity here: https://keybase.io/sasasu
+
+==================================================================
+

@@ -1,4 +1,4 @@
-baseURL = "http://example.org/"
+baseURL = "https://sasasu.github.io"
 languageCode = "en-us"
-title = "My New Hugo Site"
+title = "不为人知的幻想乡"
 theme = "xmin"

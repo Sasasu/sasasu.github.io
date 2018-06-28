@@ -24,7 +24,7 @@ slot 数量和作业完成时间不是线性关系
 
 # 定义
 
-1. Job Complution Time(JCT)
+1. Job Completion Time (JCT)
 2. Progress Rate = $Shortest\ JCT \over JCT\ with\ the\ allocated\ slots$
 
 # 优化

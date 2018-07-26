@@ -5,4 +5,4 @@ draft: flase
 ---
 
 [A Summary of Cloud Scheduling](http://accelazh.github.io/cloud/A-Summary-of-Cloud-Scheduling)
-
+[Android Binary XML](https://justanapplication.wordpress.com/category/android/android-binary-xml/)

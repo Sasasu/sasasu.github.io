@@ -15,3 +15,5 @@ draft: flase
 
 
 无论用什么系统, 一定要有一个 okular, 就算编译 4 个小时也值得.   --- 使用 Mac 的第二周
+
+[tig 和 lazygit](https://github.com/jesseduffield/lazygit)

@@ -8,5 +8,5 @@ title: Home
 
 这里列出了所有的文章. 你也可以按照分类来查看.
 
-[posts](/post/)　[notes](/note/)　[___](/private/)
+[posts](/diary/)　[notes](/note/)　[___](/private/)
 

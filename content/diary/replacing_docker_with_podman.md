@@ -62,7 +62,7 @@ sa:500:50
 
     - 可以用 systemd service 管理容器
 
-- 热迁移：激进的 RedHat 集成了 CRIU，所以 podman 里的容器可以在单机里热迁移
+- podman 里集成了 CRIU，所以 podman 里的容器可以在单机上热迁移
 <script id="asciicast-205183" src="https://asciinema.org/a/205183.js" async></script>
 
 ### 快速体验

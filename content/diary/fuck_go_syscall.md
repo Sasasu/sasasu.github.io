@@ -27,7 +27,7 @@ draft: false
 
 libc 中的 `isatty` 使用 `tcgetattr` 获取终端属性，如果成功则认为此文件描述符是一个终端。`tcgetattr` 最终会使用 `ioctl` 系统调用，获取终端属性。
 
-go-isatty 直接向 `ioctl` 传入 `TIOCGETA` 获取终端属性。它直接进行 `syscall`，我们所以没有任何 hook 的余地。
+go-isatty 直接向 `ioctl` 传入 `TIOCGETA` 获取终端属性。它直接进行 `syscall`，我们在非特权下没有任何 hook 的余地。
 
 万幸，Linux 中有一个无须特权就可以使用的伪终端驱动，它对终端属性有关的系统调用全部返回成功，不设置任何东西。
 

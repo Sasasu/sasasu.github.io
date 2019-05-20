@@ -3,6 +3,7 @@ language: shell
 install:
     - wget https://github.com/gohugoio/hugo/releases/download/v0.55.6/hugo_0.55.6_Linux-64bit.deb
     - sudo dpkg -i hugo*.deb
+    - rm hugo*.deb
 
 script:
     - hugo --minify
@@ -12,7 +13,7 @@ after_success: |
         git checkout --orphan master
         git rm -rf .
         mv public/* .
-        rm public *.deb -rf
+        rmdir public
         git add -f --ignore-errors --all
         git -c user.name='travis ci' -c user.email='travis ci' commit -m "commit by travis ci"
         git push -f -q https://$GITHUB_USER:$GITHUB_API_KEY@github.com/$TRAVIS_REPO_SLUG master

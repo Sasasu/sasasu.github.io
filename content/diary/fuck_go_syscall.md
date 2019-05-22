@@ -22,8 +22,9 @@ draft: false
 全静态连接的软件不太常见，现在最常见的应该是某语言写的命令行工具。
 
 在这种类型的语言生态中完全由自己完成系统调用，不触碰 libc。
-甚至有人重写了 libc 中的 `isatty` 函数，使其更方便的直接进行系统调用。
-比如更新活跃的 [matten/go-isatty](https://github.com/mattn/go-isatty)。
+甚至[有人](https://github.com/mattn/go-isatty)重写了 libc 中的 `isatty` 函数，使其更方便的直接进行系统调用。
+
+go 的标准库 [golang.org/x/crypto/ssh/terminal](https://github.com/golang/crypto/blob/master/ssh/terminal/util.go#L29) 都直接进行系统调用，导致使用标准库的日志库 [logrus](https://github.com/sirupsen/logrus) 也不能通过 hook libc 解决。
 
 libc 中的 `isatty` 使用 `tcgetattr` 获取终端属性，如果成功则认为此文件描述符是一个终端。`tcgetattr` 最终会使用 `ioctl` 系统调用，获取终端属性。
 

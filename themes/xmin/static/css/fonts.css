@@ -1,7 +1,11 @@
 body {
-  font-family: Optima, Candara, Calibri, Arial, sans-serif;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 19px;
+  line-height: 34.2px;
 }
+
 code {
-  font-family: "Lucida Console", Monaco, monospace;
-  font-size: 85%;
+  font-family: "Fantasque Sans Mono", monospace;
+  font-size: 16px;
+  line-height: 20px;
 }

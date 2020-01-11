@@ -1,17 +1,29 @@
 {{ partial "header.html" . }}
 
-{{if not .IsHome }}
+{{ if not .IsHome }}
 <h1>{{ .Title }}</h1>
 {{ end }}
 
 {{ .Content }}
 
 <ul>
-  {{ range (where .Data.Pages "Section" "!=" "") }}
+  {{ range (where .Pages.ByDate.Reverse "Section" "!=" "") }}
+
+    {{ if .IsNode }}
+      {{ range (where .Pages.ByDate.Reverse "Section" "!=" "") }}
   <li>
     <span class="date">{{ .Date.Format "2006/01/02" }}</span>
-    <a href="{{ .URL }}">{{ .Title }}</a>
+    <a href="{{ .Permalink }}">{{ .Title }}</a>
   </li>
+      {{ end }}
+
+    {{ else if .IsPage }}
+  <li>
+    <span class="date">{{ .Date.Format "2006/01/02" }}</span>
+    <a href="{{ .Permalink }}">{{ .Title }}</a>
+  </li>
+    {{ end }}
+
   {{ end }}
 </ul>
 

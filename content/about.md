@@ -2,6 +2,4 @@
 title: About Sasasu
 ---
 
-<center>
-# 空的.
-</center>
+hating golang but writing golang

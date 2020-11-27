@@ -1,0 +1,82 @@
+{
+  "main": {
+    "id": "f7e4156e99e784f8",
+    "type": "split",
+    "children": [
+      {
+        "id": "1e7e3413c8cacf75",
+        "type": "leaf",
+        "active": true,
+        "state": {
+          "type": "markdown",
+          "state": {
+            "file": "private/paf.md",
+            "mode": "source"
+          }
+        }
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "13bf0db4c47dc98d",
+    "type": "split",
+    "children": [
+      {
+        "id": "33fe2639ea697872",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "81c4191ae7042999",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {}
+            }
+          },
+          {
+            "id": "379fc6251cbd087d",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "70d8284a8e38abae",
+    "type": "split",
+    "children": [
+      {
+        "id": "f1fa1db7dd2d6184",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "8e042f3adf2e42b2",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "private/paf.md"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "lastOpenFiles": [
+    "private/paf.md",
+    "diary/fuck_go_syscall.md",
+    "diary/timeseries_on_disk_format_2.md",
+    "about.md",
+    "sign_bit_check_in_golang.md"
+  ]
+}

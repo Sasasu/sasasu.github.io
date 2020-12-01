@@ -8,7 +8,7 @@ draft: true
 
 pgsql 号称高扩展性，实际上单纯是是在关键路径上有很多函数指针，pgsql 使用 dlopen 之后允许用户程序修改这些指针而已。
 
-可以在代码里搜 `extern PGDLLIMPORT` 找到所有的扩展点。
+可以在代码里搜 `extern PGDLLIMPORT` 和 `hook` 找到所有的扩展点。
 
 ```
 include/utils/elog.h:412:extern PGDLLIMPORT emit_log_hook_type emit_log_hook;
@@ -22,7 +22,6 @@ include/catalog/objectaccess.h:132:extern PGDLLIMPORT object_access_hook_type ob
 include/commands/explain.h:72:extern PGDLLIMPORT ExplainOneQuery_hook_type ExplainOneQuery_hook;
 include/commands/explain.h:76:extern PGDLLIMPORT explain_get_index_name_hook_type explain_get_index_name_hook;
 include/commands/user.h:25:extern PGDLLIMPORT check_password_hook_type check_password_hook;
-
 include/libpq/auth.h:27:extern PGDLLIMPORT ClientAuthentication_hook_type ClientAuthentication_hook;
 include/libpq/libpq-be.h:293:extern PGDLLIMPORT openssl_tls_init_hook_typ openssl_tls_init_hook;
 include/parser/analyze.h:22:extern PGDLLIMPORT post_parse_analyze_hook_type post_parse_analyze_hook;
@@ -43,14 +42,25 @@ include/storage/ipc.h:78:extern PGDLLIMPORT shmem_startup_hook_type shmem_startu
 ```
 
 # utils
-[emit_log_hook](https://github.com/postgres/postgres/blob/4df51ca8b39f08ef19a77b9776f2547c86b70c49/src/include/utils/elog.h#L411) 处于 `erereport` 和 `elog` 的处理路径上。
+[emit_log_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/elog.h#L412) 处于 `erereport` 和 `elog` 的处理路径上。
 ```c
 void emit_log_hook(ErrorData *edata);
 ```
 应该可以用来修改错误级别，审计错误之的，没见过有人加这个 hook。
 
+[get_attavgwidth_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/lsyscache.h#L62) 优化器相关，可以直接覆盖 `get_attavgwidth`。
+```c
+int32 get_attavgwidth_hook(Oid relid, AttrNumber attnum);
+```
+获取表中某一列的平均宽度。对于变长类型有用。
+
+[get_relation_stats_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/lsyscache.h#L62)
+```c
+bool get_relation_info_hook(PlannerInfo *root, RangeTblEntry *rte, AttrNumber attnum, VariableStatData *vardata);
+```
+
 # IPC
-[shmem_startup_hook](https://github.com/postgres/postgres/blob/3df51ca8b39f08ef19a77b9776f2547c86b70c49/src/include/storage/ipc.h#L78) PostgreSQL 的 IPC 一部分。用于在 `postmaster` 上开辟共享内存区域，与其他进程通讯。
+[shmem_startup_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/storage/ipc.h#L78) PostgreSQL 的 IPC 一部分。用于在 `postmaster` 上开辟共享内存区域，与其他进程通讯。
 ```c
 void shmem_startup_hook_type(void);
 ```

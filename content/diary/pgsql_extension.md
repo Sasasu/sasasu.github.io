@@ -11,37 +11,44 @@ pgsql 号称高扩展性，实际上单纯是是在关键路径上有很多函�
 可以在代码里搜 `extern PGDLLIMPORT` 和 `hook` 找到所有的扩展点。
 
 ```
-include/utils/elog.h:412:extern PGDLLIMPORT emit_log_hook_type emit_log_hook;
-include/utils/lsyscache.h:63:extern PGDLLIMPORT get_attavgwidth_hook_type get_attavgwidth_hook;
-include/utils/selfuncs.h:124:extern PGDLLIMPORT get_relation_stats_hook_type get_relation_stats_hook;
-include/utils/selfuncs.h:129:extern PGDLLIMPORT get_index_stats_hook_type get_index_stats_hook;
-include/tcop/utility.h:76:extern PGDLLIMPORT ProcessUtility_hook_type ProcessUtility_hook;
-include/fmgr.h:771:extern PGDLLIMPORT needs_fmgr_hook_type needs_fmgr_hook;
-include/fmgr.h:772:extern PGDLLIMPORT fmgr_hook_type fmgr_hook;
-include/catalog/objectaccess.h:132:extern PGDLLIMPORT object_access_hook_type object_access_hook;
-include/commands/explain.h:72:extern PGDLLIMPORT ExplainOneQuery_hook_type ExplainOneQuery_hook;
-include/commands/explain.h:76:extern PGDLLIMPORT explain_get_index_name_hook_type explain_get_index_name_hook;
-include/commands/user.h:25:extern PGDLLIMPORT check_password_hook_type check_password_hook;
-include/libpq/auth.h:27:extern PGDLLIMPORT ClientAuthentication_hook_type ClientAuthentication_hook;
-include/libpq/libpq-be.h:293:extern PGDLLIMPORT openssl_tls_init_hook_typ openssl_tls_init_hook;
-include/parser/analyze.h:22:extern PGDLLIMPORT post_parse_analyze_hook_type post_parse_analyze_hook;
-include/rewrite/rowsecurity.h:40:extern PGDLLIMPORT row_security_policy_hook_type row_security_policy_hook_permissive;
-include/rewrite/rowsecurity.h:42:extern PGDLLIMPORT row_security_policy_hook_type row_security_policy_hook_restrictive;
-include/optimizer/plancat.h:25:extern PGDLLIMPORT get_relation_info_hook_type get_relation_info_hook;
-include/optimizer/paths.h:33:extern PGDLLIMPORT set_rel_pathlist_hook_type set_rel_pathlist_hook;
-include/optimizer/paths.h:42:extern PGDLLIMPORT set_join_pathlist_hook_type set_join_pathlist_hook;
-include/optimizer/paths.h:48:extern PGDLLIMPORT join_search_hook_type join_search_hook;
-include/optimizer/planner.h:30:extern PGDLLIMPORT planner_hook_type planner_hook;
-include/optimizer/planner.h:38:extern PGDLLIMPORT create_upper_paths_hook_type create_upper_paths_hook;
-include/executor/executor.h:66:extern PGDLLIMPORT ExecutorStart_hook_type ExecutorStart_hook;
-include/executor/executor.h:73:extern PGDLLIMPORT ExecutorRun_hook_type ExecutorRun_hook;
-include/executor/executor.h:77:extern PGDLLIMPORT ExecutorFinish_hook_type ExecutorFinish_hook;
-include/executor/executor.h:81:extern PGDLLIMPORT ExecutorEnd_hook_type ExecutorEnd_hook;
-include/executor/executor.h:85:extern PGDLLIMPORT ExecutorCheckPerms_hook_type ExecutorCheckPerms_hook;
-include/storage/ipc.h:78:extern PGDLLIMPORT shmem_startup_hook_type shmem_startup_hook;
+include/utils/elog.h:412:           extern PGDLLIMPORT emit_log_hook_type emit_log_hook;
+include/utils/lsyscache.h:63:       extern PGDLLIMPORT get_attavgwidth_hook_type get_attavgwidth_hook;
+include/utils/selfuncs.h:124:       extern PGDLLIMPORT get_relation_stats_hook_type get_relation_stats_hook;
+include/utils/selfuncs.h:129:       extern PGDLLIMPORT get_index_stats_hook_type get_index_stats_hook;
+include/tcop/utility.h:76:          extern PGDLLIMPORT ProcessUtility_hook_type ProcessUtility_hook;
+include/fmgr.h:771:                 extern PGDLLIMPORT needs_fmgr_hook_type needs_fmgr_hook;
+include/fmgr.h:772:                 extern PGDLLIMPORT fmgr_hook_type fmgr_hook;
+include/catalog/objectaccess.h:132: extern PGDLLIMPORT object_access_hook_type object_access_hook;
+
+include/commands/explain.h:72:      extern PGDLLIMPORT ExplainOneQuery_hook_type ExplainOneQuery_hook;
+include/commands/explain.h:76:      extern PGDLLIMPORT explain_get_index_name_hook_type explain_get_index_name_hook;
+include/commands/user.h:25:         extern PGDLLIMPORT check_password_hook_type check_password_hook;
+
+include/libpq/auth.h:27:            extern PGDLLIMPORT ClientAuthentication_hook_type ClientAuthentication_hook;
+include/libpq/libpq-be.h:293:       extern PGDLLIMPORT openssl_tls_init_hook_typ openssl_tls_init_hook;
+include/parser/analyze.h:22:        extern PGDLLIMPORT post_parse_analyze_hook_type post_parse_analyze_hook;
+include/rewrite/rowsecurity.h:40:   extern PGDLLIMPORT row_security_policy_hook_type row_security_policy_hook_permissive;
+include/rewrite/rowsecurity.h:42:   extern PGDLLIMPORT row_security_policy_hook_type row_security_policy_hook_restrictive;
+include/optimizer/plancat.h:25:     extern PGDLLIMPORT get_relation_info_hook_type get_relation_info_hook;
+include/optimizer/paths.h:33:       extern PGDLLIMPORT set_rel_pathlist_hook_type set_rel_pathlist_hook;
+include/optimizer/paths.h:42:       extern PGDLLIMPORT set_join_pathlist_hook_type set_join_pathlist_hook;
+include/optimizer/paths.h:48:       extern PGDLLIMPORT join_search_hook_type join_search_hook;
+include/optimizer/planner.h:30:     extern PGDLLIMPORT planner_hook_type planner_hook;
+include/optimizer/planner.h:38:     extern PGDLLIMPORT create_upper_paths_hook_type create_upper_paths_hook;
+include/executor/executor.h:66:     extern PGDLLIMPORT ExecutorStart_hook_type ExecutorStart_hook;
+include/executor/executor.h:73:     extern PGDLLIMPORT ExecutorRun_hook_type ExecutorRun_hook;
+include/executor/executor.h:77:     extern PGDLLIMPORT ExecutorFinish_hook_type ExecutorFinish_hook;
+include/executor/executor.h:81:     extern PGDLLIMPORT ExecutorEnd_hook_type ExecutorEnd_hook;
+include/executor/executor.h:85:     extern PGDLLIMPORT ExecutorCheckPerms_hook_type ExecutorCheckPerms_hook;
+include/storage/ipc.h:78:           extern PGDLLIMPORT shmem_startup_hook_type shmem_startup_hook;
 ```
 
-# utils
+# 流程
+
+https://wiki.postgresql.org/wiki/Backend_flowchart
+
+
+# utils 工具类函数
 [emit_log_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/elog.h#L412) 处于 `erereport` 和 `elog` 的处理路径上。
 ```c
 void emit_log_hook(ErrorData *edata);
@@ -54,10 +61,46 @@ int32 get_attavgwidth_hook(Oid relid, AttrNumber attnum);
 ```
 获取表中某一列的平均宽度。对于变长类型有用。
 
-[get_relation_stats_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/lsyscache.h#L62) 优化器相关。
+[get_relation_stats_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/selfuncs.h#L124) 优化器相关，可以
 ```c
-bool get_relation_info_hook(PlannerInfo *root, RangeTblEntry *rte, AttrNumber attnum, VariableStatData *vardata);
+bool get_relation_stats_hook(PlannerInfo *root, RangeTblEntry *rte, AttrNumber attnum, VariableStatData *vardata);
 ```
+
+[get_index_stats_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/selfuncs.h#L129) 优化器相关。
+```c
+bool get_index_stats_hook(PlannerInfo *root, RangeTblEntry *rte, AttrNumber attnum, VariableStatData *vardata);
+```
+
+# tcop PostgreSQL 顶层
+
+[ProcessUtility_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/tcop/utility.h#L76) 可以直接覆盖 `ProcessUtility()`
+```c
+void ProcessUtility_hook(PlannedStmt *pstmt, const char *queryString, ProcessUtilityContext context, ParamListInfo params, QueryEnvironment *queryEnv, DestReceiver *dest, QueryCompletion *qc);
+```
+
+# fmgr Function Mamager
+[needs_fmgr_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/fmgr.h#L771) 这个 function 是否需要 fmgr_hook
+```c
+bool needs_fmgr_hook(Oid fn_oid);
+```
+
+[fmgr_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/fmgr.h#L772) function 的 hook，执行多次。
+```c
+void fmgr_hook(FmgrHookEventType event, FmgrInfo *flinfo, Datum *arg);
+```
+
+# catalog
+[object_access_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/catalog/objectaccess.h#L132) 每次访问 system object 的 hook。
+```c
+void object_access_hook(ObjectAccessType access, Oid classId, Oid objectId, int subId, void *arg);
+```
+
+可以用来做审计，记录热表之类。
+
+# commands
+include/commands/explain.h:72:      extern PGDLLIMPORT ExplainOneQuery_hook_type ExplainOneQuery_hook;
+include/commands/explain.h:76:      extern PGDLLIMPORT explain_get_index_name_hook_type explain_get_index_name_hook;
+include/commands/user.h:25:         extern PGDLLIMPORT check_password_hook_type check_password_hook;
 
 # IPC
 [shmem_startup_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/storage/ipc.h#L78) PostgreSQL 的 IPC 一部分。用于在 `postmaster` 上开辟共享内存区域，与其他进程通讯。

@@ -54,7 +54,7 @@ int32 get_attavgwidth_hook(Oid relid, AttrNumber attnum);
 ```
 获取表中某一列的平均宽度。对于变长类型有用。
 
-[get_relation_stats_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/lsyscache.h#L62)
+[get_relation_stats_hook](https://github.com/Sasasu/postgres/blob/0a4db67b5ed05c4013ea968930af36853f088404/src/include/utils/lsyscache.h#L62) 优化器相关。
 ```c
 bool get_relation_info_hook(PlannerInfo *root, RangeTblEntry *rte, AttrNumber attnum, VariableStatData *vardata);
 ```
@@ -68,5 +68,7 @@ void shmem_startup_hook_type(void);
 
 在 attach 共享内存之前需要在 `void _PG_init()` 里使用 `void RequestAddinShmemSpace(Size)` 分配共享内存。
 
-释放内存是自动的，有 `on_shmem_exit` hook 可以析构内存以外的资源。
+释放内存是自动的，PostgreSQL 也没有暴露通过 IPC 发送一个指针子进程再去 `memopen` 的操作。
+
+对于内存已外资源有 `on_shmem_exit` hook 可以析构内存以外的资源。
 

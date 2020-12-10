@@ -15,6 +15,6 @@ after_success: |
         mv public/* .
         rmdir public
         git add -f --ignore-errors --all
-        git -c user.name='Sasasu' -c user.email='su@sasasu.me' commit -m "update blog"
+        git -c user.name='Sasasu' -c user.email='i@sasa.su' commit -m "update blog"
         git push -f -q https://$GITHUB_USER:$GITHUB_API_KEY@github.com/$TRAVIS_REPO_SLUG master
     fi

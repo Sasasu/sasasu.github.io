@@ -1,0 +1,25 @@
+name: release
+on: [push]
+
+jobs:
+  rander:
+    runs-on: ubuntu-latest
+    steps:
+      - run: wget https://github.com/gohugoio/hugo/releases/download/v0.79.0/hugo_0.79.0_Linux-64bit.deb
+      - run: sudo dpkg -i hugo*.deb && rm hugo*.deb
+
+      - uses: actions/checkout@master
+
+      - run: hugo --minify
+      - run: git checkout --orphan master
+      - run: git rm -rf .
+      - run: mv public/* . && rmdir public
+      - run: git add -f --ignore-errors --all
+      - run: git -c user.name='Sasasu' -c user.email='i@sasa.su' commit --allow-empty-message -m ''
+
+      - name: GitHub Push
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          force: true
+          branch: master
+          github_token: ${{ secrets.GITHUB_TOKEN }}

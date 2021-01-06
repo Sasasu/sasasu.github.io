@@ -92,22 +92,22 @@ toast 数据与普通表无异。
 
 每个 Item （名为 HeapTupleHeaderData）格式如下
 
-| Field       | Type            | Length  | Description                |
-| -----       | ----            | ------  | -----------                |
-| t_xmin      | TransactionId   | 4 bytes | insert XID stamp           |
-| t_xmax      | TransactionId   | 4 bytes | delete XID stamp           |
-| t_cid       | CommandId       | 4 bytes | sql 计数                   |
-| t_xvac      | TransactionId   | 4 bytes | VACUUM 的 xid              |
-| t_ctid      | ItemPointerData | 6 bytes | 行 ID                      |
-| t_infomask2 | uint16          | 2 bytes | number of attributes, flag |
-| t_infomask  | uint16          | 2 bytes | flag                       |
-| t_hoff      | uint8           | 1 byte  | 用户数据偏移量             |
+| Field       | Type            | Length  | Description                       |
+| -----       | ----            | ------  | -----------                       |
+| t_xmin      | TransactionId   | 4 bytes | insert XID stamp                  |
+| t_xmax      | TransactionId   | 4 bytes | delete XID stamp                  |
+| t_cid       | CommandId       | 4 bytes | sql 计数                          |
+| t_xvac      | TransactionId   | 4 bytes | VACUUM 的 xid 和 t_cid 是个 union |
+| t_ctid      | ItemPointerData | 6 bytes | 行 ID                             |
+| t_infomask2 | uint16          | 2 bytes | number of attributes, flag        |
+| t_infomask  | uint16          | 2 bytes | flag                              |
+| t_hoff      | uint8           | 1 byte  | 用户数据偏移量                    |
 
 ctid = Block Number 4 byte + Offset Number 2 byte
 
 PostgreSQL 为何又存储了一遍 Block ID? + 4 byte
 
-Header 有 27 byte 大。如果只存两个 i64(16byte) 的话，空间利用率为 37.2%.
+Header 有 23 byte 大。如果只存两个 i64(16byte) 的话，空间利用率为 41%.
 
 Timescale 是认真的么?
 

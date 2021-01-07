@@ -180,7 +180,32 @@ $y$ 为计算出的 FMS Page 序号
 
 只是一个标记，当存在空表时 PostgreSQL crash 用这个标记来恢复。
 
-
 # WAL
+WAL 与 XLOG 是一个东西。文档不清晰，要翻代码。
+
+WAL 固定大小，16MiB 一个文件，文件依旧无头。
+
+使用的概念上对于一个 TimeLineID 有一个无限长的文件，使用 64bit 的 offset 访问。
+
+文件名格式为 `%08X%08X%08X`
+  - TimeLineID 单调递增的启动次数
+  - SegmantNo  无限长的 offset 的前 32bit
+  - SegmantNo  无限长的 offset 的后 32bit / 文件大小
+
+创建或打开文件在 `XLogFileInit` 中，会循环调用 `pwrite` 写出一个 16MiB 的文件....
+
+后续的写入和读取均使用 `pread` `pwrite`，没有用 `smgr` 的抽象，也都是不定长的随机 IO。
+
+文件读取用 `XLogReaderRoutine` 里的虚函数 `XLogPageRead` 调用 pread 直接读。
+
+写入从共享内存进入 `XLogBackgroundFlush` 里的 `XLogWrite` 里的 pwrite 直接写入。
+
+XLog 有 Block 和 Header，默认情况同样为 8KiB XLOG_BLCKSZ。
+
+引入 Block 大概是为了保存完整性。
+
+XLog 格式大致为 `Header [XLog, XLog]` 每个都是不定长的。解析函数为 `DecodeXLogRecord` 组装函数为 `XLogRecordAssemble`
+
+有空看完 [doc](https://www.interdb.jp/pg/pgsql09.html)
 
 # XACT

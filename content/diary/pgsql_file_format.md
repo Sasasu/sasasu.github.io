@@ -1,7 +1,7 @@
 ---
 title: "PostgreSQL 的文件格式"
 date: 2020-12-31T13:25:12+08:00
-draft: true
+draft: false
 ---
 
 [doc](https://www.postgresql.org/docs/13/storage-file-layout.html)

@@ -1,0 +1,87 @@
+==================================================================
+https://keybase.io/sasasu
+--------------------------------------------------------------------
+
+I hereby claim:
+
+  * I am an admin of https://blog.sasa.su
+  * I am sasasu (https://keybase.io/sasasu) on keybase.
+  * I have a public key with fingerprint 0AAB CAF6 773D 5B6E 1F4E  CF79 4E72 AF09 097D AE2E
+
+To do so, I am signing this object:
+
+{
+  "body": {
+    "key": {
+      "eldest_kid": "01016e5eb2ad5bda81637d56f43be4b42629de4714c00c2830b72270f8e200df13880a",
+      "fingerprint": "0aabcaf6773d5b6e1f4ecf794e72af09097dae2e",
+      "host": "keybase.io",
+      "key_id": "4e72af09097dae2e",
+      "kid": "0116a00d3d6e854c6a7da120932f64c9fd2587b212b7481dd696dcb289335881a9560a",
+      "uid": "7ed0876a8712e23f3545e6b30b4ced19",
+      "username": "sasasu"
+    },
+    "merkle_root": {
+      "ctime": 1623933808,
+      "hash_meta": "530455e7e4bd61df9bad9c989c4ccc4f336e808728802f63eb928f1f4ced6ad4",
+      "seqno": 20203044
+    },
+    "revoke": {
+      "sig_ids": [
+        "5fe5369f8a241e45afc837cd070f7f86e9465567b49b4193813ecd3eb21eb94b0f"
+      ]
+    },
+    "service": {
+      "hostname": "blog.sasa.su",
+      "protocol": "https:"
+    },
+    "type": "web_service_binding",
+    "version": 1
+  },
+  "ctime": 1623933813,
+  "expire_in": 157680000,
+  "prev": "4bdb9b799f110e84c6260d9d4c114c168cdaf6d1c61cb48fd66edf44d472c0f1",
+  "seqno": 69,
+  "tag": "signature"
+}
+
+which yields the signature:
+
+-----BEGIN PGP MESSAGE-----
+
+owFtU21QFVUYvgiaH0EWDmom6s4gmoh7zp49u8tUqFBqCWQxKYhz3bPn7HW7H3u5
+93JFL+hoE0yj+DGMk2LmRw4lmqilU6GTSkRJRaU45hQlKhMJWjM6NqLVWUanmabd
+Hzu7+7zP87zP+55NifGuoXFNzZ3da85nvhXX1kNcS9tyKmMCsekKISsmeNnAg/ko
+C0fcXosKWYIIRICZzAjUqUyorgIsKVTGJpIIQwRBDDXKkAKQIYoGVCWRKBAqoqky
+KIrUBJKqirqQIZhWwMNCwZAViDi0uk4M3cSKInFazICJmGEqGmIK1E1REzWF6gwy
+XrjMDjsV3BzRwyzTsvk3/uIesPc/+Ae+Ada5AYlipsrIwDoHAChqEjQxMjSTQllV
+CASQKEgFlGINU4NAVZMkWVWBrsl4wHfZAJ3CqKgqWFcVABmUTElGMsOEd4sMRoHm
+AMMsFND9jKPDOr/LhMoMwc9CXh9zh2w74kRrRCwHADCUuI4qqrw9PbzM7WcRndfJ
+kohkmSk8WIoBNTWiU83QVM1AhmEgU5J4M9wH5JnyNiRGNKiaPDvuAesUcRdhVhqw
+hSwoQpGTIW4hxKK2lznqYcvDUwsLWYsF2WSydDKKNVPVIQIMybppqJJiUJHPTjFV
+zDSEZRkrBGkEAU1SgcQMyiUh4LKIiKawpNLRC0UtY4DeGdT9AIjP9mQ6KWTyGDKE
+YMiO2Ibt43+WRSLBcJYTTWRF0IEuZ8R9n8RNrADla8IroiwUtuwAj4oj/5MakDIE
+Vh60QsxtOQhZwarIL0eHRZ2lIJRoRNE0EwCRqXz4EItUo8gAfE0BVg3KV48CAwOD
+INWkGDNqIkSRAg3RBP/GiDXuU/c4I7U8AT1SFmJC5fA3BkkJrrihrvEpkxKam1on
+1hc1gLsPL1z94GgNHuScK9fwYSMffOkhI10fbbzcv33K+qUf55Qk9WV7b8zNPlx2
+N8mTsHfBhBfHtOV/OTSxUOn7unClK+6lE1X59mPb7HNPpAXOVM/Ytzxgz6k7unvm
+y964xryOR74rUKIphzb9PHXC0Qnv242rL1ZtXlg357nhHR8GT7/evqW4sOF772ur
+Xti51orNmlXW66u/sKRviS+937Nu9bjR6Q1dn9fuGfVDanXvjivnP8ge/9QZW1qO
+SE1bjll/c93FtN+bD+TCmopxQw7EX+lKFJ8d1Fjsb2zZdrDPP/FtV+nKsxOz4t+N
+/Lr1Pdb9Wd87x3cnX6u5+cWattaiTzJahkz7w5fiasrdOrd6V0aqteCZKVVXW+fP
+ea0THippLf3NX5+0/vhJND/206iCPxP/qrtxb/u8uTtaqr66M/MYmrxTSx/TvevW
+/uK88tYniy6C3ljn3byEsZeuXT78bZ077no0Fu5Lv+6bt+7QmTF2+sE3l8L6v3f/
+8nTPhYae3B9zOzY0n8NF+3OCt2uvJg97XH+1e/aeOxdyp49qP1KT037gxtSWDWnH
+vLWtMwY/WnZ08ZHTFZdTSmZXj0iWP401lGT3N47w7m06Na3woRp/6qxJU/dWdAWE
+UG953szRfdlDVhXcWZM67l5F0qLiSef2bXGlTy6YhzqKTrvjn7+9eX3+K2NnR2u7
+Ti3KL7mSPKN42zdr0/qnxzYeuVTcdLY3t728oTTZvFVU0HniHw==
+=a0j4
+-----END PGP MESSAGE-----
+
+And finally, I am proving ownership of this host by posting or
+appending to this document.
+
+View my publicly-auditable identity here: https://keybase.io/sasasu
+
+==================================================================
+

@@ -1,0 +1,14 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Sony WI1000X-XM2 不开机维修 | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>Sony WI1000X-XM2 不开机维修</span></h1><h2 class=date>2021/07/23</h2></div><main><p>带着 WI1000X-XM2 跑步，跑完之后把耳机关机扔到一边。第二天开机按键没有反映，尝试维修。</p><p>现象：</p><ol><li>开机按钮无反应</li><li>充电时前几分钟充电红灯不亮，之后红灯常量。不亮的时间不固定。</li><li>充电电流一开始是 0.07ma-0.04ma，3 秒后到 0.01ma，然后重新回到 0.07ma。反复。</li></ol><h2 id=拆机>拆机</h2><p>首先对着这个地方使劲扣，会扣下来一个用双面胶站住的塑料挡板。</p><p><img src=/img/wi1000x-battery-fix/wi1000x-teardown.jpg alt></p><p>扣下来之后是 3 颗普通的 PH-0000 十字螺丝。</p><p>拆开后能取出一个黑色塑料小盒子，里面是电池和 NFC 天线及左边耳机的排线和排线接口。</p><h2 id=问题定位>问题定位</h2><p>拆开后发现很多水，同时有很多白色半透明胶体。</p><p>拆掉所有胶带后发现电池的负极已经被电解消失了，其他地方没有损坏。</p><p><img src=/img/wi1000x-battery-fix/damaged_battery.jpg alt></p><h2 id=买配件>买配件</h2><p><img src=/img/wi1000x-battery-fix/battery_overview.jpg alt></p><p>电池有标准的型号，561150 意思是厚度 56mm 宽度 11mm 长度 50mm.</p><p>淘宝上没有对应的型号，找了一家电池定做，RMB 15 包邮，周六下单周末发货。</p><h2 id=修复>修复</h2><p><img src=/img/wi1000x-battery-fix/new_battery.jpg alt></p><p>按原样装回去，缠更多的胶带防止电池爆炸。</p><p>完美修复！</p></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

@@ -1,0 +1,16 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Resource Central SOSP17 | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>Resource Central SOSP17</span></h1><h2 class=date>2018/06/28</h2></div><main><p><a href=/pdf/Resource-Central-SOSP17.pdf>PDF</a></p><p><a href=https://github.com/Azure/AzurePublicDataset>数据集 120G</a></p><p>介绍了 Azure 中的虚拟机使用情况, 用帐号的偏好做了个决策树</p><h1 id=类型>类型</h1><p>IaaS 和 PaaS
+数量比为 47:53
+占用资源比为 23:77</p><p>PaaS按使用量计费, 买使用量比买设备便宜.</p><p>96%的账户只会创建一种虚拟机, 用IaaS的不用 PaaS (why?</p><h1 id=利用率>利用率</h1><p>基本在 45%-60%, 第三方利用率高于第一方(不要钱随便用就会浪费系列), 25%的第三方虚拟机利用率极高(挖矿的吧)</p><p>60%的人会选择 1c2g 的配置, 普遍偏好小机器</p><h1 id=规模>规模</h1><p>90%的账户同时创建的虚拟机数小于15</p><h1 id=生存时间>生存时间</h1><p>90% 的虚拟机生存时间小于24小时, 50%的小于1小时. 超过一天的虚拟机就会活很久, 生存时间与资源利用率没有强关联</p><h1 id=复杂分类>复杂分类</h1><p>FT找周期, 有周期的是延迟敏感, 没有的是延迟不敏感, 有90%的正确率</p><h1 id=相关性>相关性</h1><p><img src=/img/resource-centra-usage/corr alt></p></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

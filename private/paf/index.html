@@ -1,0 +1,20 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Performance-Aware Fair Scheduling | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>Performance-Aware Fair Scheduling</span></h1><h2 class=date>2018/06/27</h2></div><main><p><a href=/pdf/infocom18-paf.pdf>PDF</a></p><h1 id=现象>现象</h1><p>slot 数量和作业完成时间不是线性关系</p><p><img src=/img/infocom18-paf/jct alt></p><h1 id=原因>原因</h1><ol><li>task packing</li><li>JVM warming up</li></ol><h1 id=前提>前提</h1><ol><li>完全并行, 使用computer slot</li><li>满载</li></ol><h1 id=定义>定义</h1><ol><li>Job Completion Time (JCT)</li><li>Progress Rate = $Shortest\ JCT \over JCT\ with\ the\ allocated\ slots$</li></ol><h1 id=优化>优化</h1><p>$$
+\max_{ x\overrightarrow = (x_1,x_2,&mldr;,x_n) } \sum_i{p_i(x_i)}
+$$
+$$
+subject\ to\ p_i(x_i) \ge a*p_i(f_i), i=1,&mldr;,n
+$$
+其中 $a$ 是一个叫做牺牲度的参数</p><h1 id=实现>实现</h1><p>输入progress rate 曲线, 贪心一下</p><p><img src=/img/infocom18-paf/alg alt></p><p>先进行一个公平调度, 然后两边匀一下</p><h1 id=结果>结果</h1><p>$ a=0.9$ progress rate 从 0.78 到 0.99 (15%), $a=0.99$ 时仍有13%的提高</p><p><a href=https://github.com/chenc10/Cluster-Simulator>github</a></p></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

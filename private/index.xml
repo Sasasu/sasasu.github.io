@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Privates on 不为人知的幻想乡</title><link>https://blog.sasa.su/private/</link><description>Recent content in Privates on 不为人知的幻想乡</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Thu, 28 Jun 2018 22:58:46 +0800</lastBuildDate><atom:link href="https://blog.sasa.su/private/index.xml" rel="self" type="application/rss+xml"/><item><title>Hawk</title><link>https://blog.sasa.su/private/hawk/</link><pubDate>Thu, 28 Jun 2018 22:58:46 +0800</pubDate><guid>https://blog.sasa.su/private/hawk/</guid><description>PDF
+目标 吞吐量 延迟 资源利用率 QoS
+在 Sparrow 之前 一个 job 下分好多个 Task, 都交给一个中心调度器调度.
+中心调度器了解一切, 调度开销大.
+利于: 利用率, 吞吐量 不利: 延迟
+Hawk 的前辈 Sparrow 调度器分成了多个, Job 随机选择调度器调度.
+Sparrow 调度器随机选择两个 Worker 发送 per-task, 获取 Worker 的等待队列长度 选小的那个发送 Job 利于: 延迟, 异构计算 不利: 大 job 小 job 混搭会有巨大延迟, 调度器监控几个 Worker 不好调参
+Hawk 大任务走中心调度器, 小任务走分布式调度器
+Sparrow 的方法 偷工作, Work 去主动把其他 Work 的等待队列里的活倒序拿过来 资源保留, 一小部分资源只留给短作业 (10-20%) 总结 都是一个组做的, 基本上只适合 Spark SQL 这样的小作业</description></item><item><title>Low Latency Scheduling via Docker</title><link>https://blog.sasa.su/private/low-latency-scheduling-via-docker/</link><pubDate>Thu, 28 Jun 2018 22:53:30 +0800</pubDate><guid>https://blog.sasa.su/private/low-latency-scheduling-via-docker/</guid><description>PDF slide
+现象 过长的作业占用了大量资源, 短作业没法调度 普遍实现是杀掉长作业空出资源 主流的框架不支持抢占 框架 年份 做法 缺点 YARN 13年 杀了长作业 overhead太大 Sparrow 13 per-task 没有作者想要的抢占 Hawk 15 保留一部分机器 很难预计保留多少 Natjam 13 checkpoint 存档的频率 Amoeba 12 checkpoint 存档的频率 CRIU 15 按序存档 入侵性太强 Borg 15 任务隔离 还是killbase kill-base 实现在 spark 中大概 80% 左右的overhead, mapreduce 中对于 map-heavy 是10% 对reduce-heavy 是50%.</description></item><item><title>Resource Central SOSP17</title><link>https://blog.sasa.su/private/resource-central-sosp17/</link><pubDate>Thu, 28 Jun 2018 10:24:24 +0800</pubDate><guid>https://blog.sasa.su/private/resource-central-sosp17/</guid><description>PDF
+数据集 120G
+介绍了 Azure 中的虚拟机使用情况, 用帐号的偏好做了个决策树
+类型 IaaS 和 PaaS 数量比为 47:53 占用资源比为 23:77
+PaaS按使用量计费, 买使用量比买设备便宜.
+96%的账户只会创建一种虚拟机, 用IaaS的不用 PaaS (why?
+利用率 基本在 45%-60%, 第三方利用率高于第一方(不要钱随便用就会浪费系列), 25%的第三方虚拟机利用率极高(挖矿的吧)
+60%的人会选择 1c2g 的配置, 普遍偏好小机器
+规模 90%的账户同时创建的虚拟机数小于15
+生存时间 90% 的虚拟机生存时间小于24小时, 50%的小于1小时. 超过一天的虚拟机就会活很久, 生存时间与资源利用率没有强关联
+复杂分类 FT找周期, 有周期的是延迟敏感, 没有的是延迟不敏感, 有90%的正确率
+相关性</description></item><item><title> Performance-Aware Fair Scheduling</title><link>https://blog.sasa.su/private/paf/</link><pubDate>Wed, 27 Jun 2018 21:31:42 +0800</pubDate><guid>https://blog.sasa.su/private/paf/</guid><description>PDF
+现象 slot 数量和作业完成时间不是线性关系
+原因 task packing JVM warming up 前提 完全并行, 使用computer slot 满载 定义 Job Completion Time (JCT) Progress Rate = $Shortest\ JCT \over JCT\ with\ the\ allocated\ slots$ 优化 $$ \max_{ x\overrightarrow = (x_1,x_2,&amp;hellip;,x_n) } \sum_i{p_i(x_i)} $$ $$ subject\ to\ p_i(x_i) \ge a*p_i(f_i), i=1,&amp;hellip;,n $$ 其中 $a$ 是一个叫做牺牲度的参数
+实现 输入progress rate 曲线, 贪心一下
+先进行一个公平调度, 然后两边匀一下
+结果 $ a=0.9$ progress rate 从 0.</description></item></channel></rss>

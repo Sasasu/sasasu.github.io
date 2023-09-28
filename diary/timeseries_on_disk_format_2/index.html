@@ -1,0 +1,70 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>VictoriaMetric 数据文件格式 | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>VictoriaMetric 数据文件格式</span></h1><h2 class=date>2020/07/17</h2></div><main><p>VictoriaMetric 的数据文件基本仿照 ClickHouse 的格式。</p><p>去除掉允许改表的结构，加一层 TSID 的索引为时序特性特化。</p><p>类似于有两个字段的表：timestamp 和 values。</p><ul><li>timestamp 基本等价 <code>timestamp BigInteger Codec(DoubleDelta)</code></li><li>values 基本等价 <code>values Float64 Codec(Gorilla)</code></li></ul><p>数据由 timestamp.bin / values.bin / index.bin / metaindex.bin 组成。</p><h4 id=tsid>TSID</h4><p>即唯一 ID，ID 由 MetricGroup / JobID / InstanceID / MetricID 组成。</p><p>即 prometheus 中固定存在的 <code>__name__</code>, <code>job</code>, <code>instance</code> 三个 tag 字符串做 xxhash64 截断拿到 id 上。</p><p>id 为定长 24byte。</p><p>MetricGroup / JobID / InstanceID 三个 tag 有明显的层级结构。</p><p>MetricID 为自增的原子变量，起点为服务启动时的纳秒值。</p><pre><code>TSID: 24 byte
+  MetricGroup: 8 byte
+  JobIB:       4 byte
+  InstanceID:  4 byte
+  MetricID:    8 byte
+</code></pre><h4 id=part>Part</h4><p>一个 part 由 timestamp.bin / values.bin / index.bin / metaindex.bin 四个文件组成。</p><p>part 是一个内存结构。一个 part 代表一组文件。</p><h5 id=part-header>Part Header</h5><p>part 的 header 写在文件夹名上，各个分段间由 <code>_</code> 分割。</p><pre><code>Part Header:    string
+  RowsCount:    string
+  BlocksCount:  string
+  MinTimestamp: string
+  MaxTimestamp: string
+</code></pre><p>当装载一个 Part 时 <code>.metaindex</code> 这个文件需要读入内存。</p><h4 id=meta-index>Meta Index</h4><pre><code>Meta Index Row: 56 byte
+  TSID:              24 byte
+  BlockHeadersCount: 4  byte
+  MinTimestamp:      8  byte
+  MaxTimestamp:      8  byte
+  IndexBlcokOffset:  8  byte
+  IndexBlcokSize:    4  byte
+</code></pre><p><code>metaindex.bin</code> 由多个 Meta Index Row 使用 zstd 压缩后组成。</p><p>在内存中解压后 meta index 可以进行二分搜索，通过 TSID 定位 index block offset。</p><p>Meta Index Row 使用了结构体，为了两个 4 byte 的字段需要做对齐，实际占用 64 byte 保存一个 row。</p><h4 id=index-block>Index Block</h4><p><code>index.bin</code> 中存储连续存放的 Block Headers。</p><p>从 Meta Index 拿到 offset 后可以在这里找到对应的 Block Header 数组。</p><p>将属于同一个 TSID 的 Block Header 连续存放，外面套上 zstd 常规压缩后在连续存放。</p><p>即为 index.bin。</p><pre><code>Block Header: 81 byte
+  TSID:                 24 byte
+  MinTimestamp:         8  byte
+  MaxTimestamp:         8  byte
+  FirstValue:           8  byte
+  TimestampBlockOffset: 8  byte
+  ValueBlockOffset:     8  byte
+  TimestampBlockSize:   4  byte
+  ValueBlockSize:       4  byte
+  RowsCount:            4  byte
+  Scale:                2  byte
+  TimestampMarshalType: 1  byte
+  ValueMarshalType:     1  byte
+  PrecisionBits:        1  byte
+</code></pre><p>其中 Scale 为 value 的倍数。存储的数据 = (int)真实数据 * Scale</p><p>PrecisionBits 是当使用 NearestDelta2 这种编码时的有效位长度。</p><p>拿到 Block Header 后即可定位到多组 TimestampBlockSize 和 ValueBlockOffset，分别去 <code>timestamp.bin</code> 和 <code>values.bin</code> 中寻找数据。</p><h4 id=block>Block</h4><p>TimestampBlock 与 ValueBlock 文件结构上无区别。文件中只有数据。</p><p>比较神奇的是 VictoriaMetric 没有用 XOR 编码。</p><p><a href=https://medium.com/faun/victoriametrics-achieving-better-compression-for-time-series-data-than-gorilla-317bc1f95932>https://medium.com/faun/victoriametrics-achieving-better-compression-for-time-series-data-than-gorilla-317bc1f95932</a></p><p>首先将所有数据 * Scale 转化为整数。然后数出最长的公共的后缀 0 的个数，再做除法。</p><p>注意这都是 10 进制的。</p><p>然后有如下 4 种编码方式：</p><div class=highlight><pre style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-go data-lang=go><span style=color:#75715e>// constantly changed time series with constant delta. 固定间隔的值
+</span><span style=color:#75715e></span><span style=color:#a6e22e>MarshalTypeDeltaConst</span> = <span style=color:#a6e22e>MarshalType</span>(<span style=color:#ae81ff>2</span>)
+
+<span style=color:#75715e>// time series containing only a single constant. 全一样的值
+</span><span style=color:#75715e></span><span style=color:#a6e22e>MarshalTypeConst</span> = <span style=color:#a6e22e>MarshalType</span>(<span style=color:#ae81ff>3</span>)
+
+<span style=color:#75715e>// counter timeseries. 即所谓的 double delta
+</span><span style=color:#75715e></span><span style=color:#a6e22e>MarshalTypeNearestDelta2</span> = <span style=color:#a6e22e>MarshalType</span>(<span style=color:#ae81ff>5</span>)
+
+<span style=color:#75715e>// gauge timeseries. 只取一次 delta
+</span><span style=color:#75715e></span><span style=color:#a6e22e>MarshalTypeNearestDelta</span> = <span style=color:#a6e22e>MarshalType</span>(<span style=color:#ae81ff>6</span>)
+</code></pre></div><p>在这 4 中编码方式上再加一层 ZSTD 就有了另外 4 中压缩方式。</p><h4 id=in-memory-part>in memory part</h4><p>ClickHouse 没有 in memory part, 要求客户端为输入做排序，并大块插入。</p><p>VictoriaMetric 也有类似的设计。在 agent 中处理不连续的数据，转换成 promethrus remote write 协议向存储发送。</p><p>在数据发送前是不可查询的。</p><h4 id=index>index</h4><p>名为 merge set, 结构依旧类似 ClickHouse。</p><p>由 <code>metaindex.bin</code> <code>index.bin</code> <code>items.bin</code> <code>lens.bin</code> 这四种文件组成</p><p>merge set 是一个前缀 kv。使用 Seek 实现倒排索引。</p><p>其时序部分依旧在 <a href=https://github.com/VictoriaMetrics/VictoriaMetrics/blob/master/lib/storage/index_db.go>sotrage/index_db</a> 中实现。</p><p>索引有 6 个</p><pre><code>0 + MetricName(字符串) + TagKV(有序 字符串数组)               -&gt; TSID
+
+1 + MetricName(字符串)                                        -&gt; MetricID
+1 + TagK(字符串) + TagV(字符串)                               -&gt; MetricID
+
+2 + MetricID(8 byte)                                          -&gt; TSID(24 byte)
+
+3 + MetricID(8 byte)                                          -&gt; MetricName(字符串) + TagKV(有序 字符串数组)
+
+4 + MetricID(8 byte)                                          -&gt; 空，标识已经删除的 metric
+
+5 + 时间(8byte)                                               -&gt; MetricID(8byte)
+
+6 + 时间(8byte) + MetricName(字符串) + TagKV(有序 字符串数组) -&gt; MetricID
+</code></pre></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

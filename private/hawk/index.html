@@ -1,0 +1,16 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Hawk | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>Hawk</span></h1><h2 class=date>2018/06/28</h2></div><main><p><a href=/pdf/atc15-paper-delgado_update.pdf>PDF</a></p><h1 id=目标>目标</h1><ol><li>吞吐量</li><li>延迟</li><li>资源利用率</li></ol><p>QoS</p><h1 id=在-sparrow-之前>在 Sparrow 之前</h1><p>一个 job 下分好多个 Task, 都交给一个中心调度器调度.</p><p>中心调度器了解一切, 调度开销大.</p><p>利于: 利用率, 吞吐量
+不利: 延迟</p><h1 id=hawk-的前辈-sparrow>Hawk 的前辈 Sparrow</h1><p>调度器分成了多个, Job 随机选择调度器调度.</p><ol><li>Sparrow 调度器随机选择两个 Worker 发送 per-task, 获取 Worker 的等待队列长度</li><li>选小的那个发送 Job</li></ol><p>利于: 延迟, 异构计算
+不利: 大 job 小 job 混搭会有巨大延迟, 调度器监控几个 Worker 不好调参</p><h1 id=hawk>Hawk</h1><p>大任务走中心调度器, 小任务走分布式调度器</p><ol><li>Sparrow 的方法</li><li>偷工作, Work 去主动把其他 Work 的等待队列里的活倒序拿过来</li><li>资源保留, 一小部分资源只留给短作业 (10-20%)</li></ol><h1 id=总结>总结</h1><p>都是一个组做的, 基本上只适合 Spark SQL 这样的小作业</p></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

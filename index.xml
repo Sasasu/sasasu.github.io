@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Home on 不为人知的幻想乡</title><link>https://blog.sasa.su/</link><description>Recent content in Home on 不为人知的幻想乡</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Sun, 07 Nov 2021 21:51:36 +0800</lastBuildDate><atom:link href="https://blog.sasa.su/index.xml" rel="self" type="application/rss+xml"/><item><title>PostgreSQL 的 WAL</title><link>https://blog.sasa.su/diary/postgresql_wal/</link><pubDate>Sun, 07 Nov 2021 21:51:36 +0800</pubDate><guid>https://blog.sasa.su/diary/postgresql_wal/</guid><description>PostgreSQL 的块 IO 大小是 8KiB (BLOCKSIZE)，对于 8KiB 的文件使用 sync_file_range() 并不是原子的。
+为了保证原子性 PostgreSQL 使用借助 WAL，每次事务提交前将 WAL 刷盘，事务结束。崩溃时从上一个存档点将所有已提交 WAL 重做，恢复到崩溃前的状态。
+PostgreSQL 的 WAL 目前只有 REDO LOG，也就是说 PostgreSQL 不会修改旧数据，会将版本链在数据文件中构建。频繁的做 update FOO set bar=baz 会导致数据文件膨胀，需要使用 VACCUM FULL 来重写整个数据文件。
+EnterpriseDB 有一个支持 UNDO LOG 的分支，不需要频繁的 VACCUM FULL，这个数据格式叫 zheap 目前处于弃坑状态中。
+REDO LOG 的 fsync() 略微复杂。
+首先有一个配置字段 wal_buffers，支持各种奇葩单位，换算后的值为 8KiB (XLOG_BLCKSZ) ~ 16MiB (Wal Segment Size). 当有新的 WAL 到达时需先用 XLogInsert() 和 XLogInsertRecord() 将数据拷贝到 wal_buffers 中。 XLogInsertRecord() 的代码面条风格严重，write offset buffer segment 这三层没有分离，完全挤在一起。 其中分配新的 buffer 的逻辑在 XLogInsertRecord() -&amp;gt; CopyXLogRecordToWAL() -&amp;gt; GetXLogBuffer() -&amp;gt; AdvanceXLInsertBuffer() 其中最顶层的 XLogInsertRecord() 进入时需要全局锁。AdvanceXLInsertBuffer() 调用了 WaitXLogInsertionsToFinish() 它遍历所有的写锁，唤醒 WAL 刷盘进程，等刷盘完成后返回。</description></item><item><title>Sony WI1000X-XM2 不开机维修</title><link>https://blog.sasa.su/diary/wi1000x-battery-fix/</link><pubDate>Fri, 23 Jul 2021 14:24:03 +0800</pubDate><guid>https://blog.sasa.su/diary/wi1000x-battery-fix/</guid><description>带着 WI1000X-XM2 跑步，跑完之后把耳机关机扔到一边。第二天开机按键没有反映，尝试维修。
+现象：
+开机按钮无反应 充电时前几分钟充电红灯不亮，之后红灯常量。不亮的时间不固定。 充电电流一开始是 0.07ma-0.04ma，3 秒后到 0.01ma，然后重新回到 0.07ma。反复。 拆机 首先对着这个地方使劲扣，会扣下来一个用双面胶站住的塑料挡板。
+扣下来之后是 3 颗普通的 PH-0000 十字螺丝。
+拆开后能取出一个黑色塑料小盒子，里面是电池和 NFC 天线及左边耳机的排线和排线接口。
+问题定位 拆开后发现很多水，同时有很多白色半透明胶体。
+拆掉所有胶带后发现电池的负极已经被电解消失了，其他地方没有损坏。
+买配件 电池有标准的型号，561150 意思是厚度 56mm 宽度 11mm 长度 50mm.
+淘宝上没有对应的型号，找了一家电池定做，RMB 15 包邮，周六下单周末发货。
+修复 按原样装回去，缠更多的胶带防止电池爆炸。
+完美修复！</description></item><item><title>PostgreSQL 的文件格式</title><link>https://blog.sasa.su/diary/pgsql_file_format/</link><pubDate>Thu, 31 Dec 2020 13:25:12 +0800</pubDate><guid>https://blog.sasa.su/diary/pgsql_file_format/</guid><description>doc
+PostgreSQL 使用 &amp;ldquo;共享硬盘&amp;rdquo; 和 &amp;ldquo;共享内存&amp;rdquo; 的方式在单机上组成集群。尽管文档不断重复 &amp;ldquo;Cluster&amp;rdquo;，PostgreSQL 只能单机运行。
+从文件层面 PostgreSQL 表现如下：
+文件名 作用 PG_VERSION 版本号 base/NNN/PG_VERSION 版本号 base/NNN/MMM NNN 库 MMM 表数据 base/NNN/MMM_vm NNN 库 MMM 表可见块 base/NNN/MMM_fsm NNN 库 MMM 表空闲块 base/NNN/MMM_init NNN 库 MMM 表初始化标记 current_logfiles 日志文件当前写入 global pg_global 库里的表类似 base/NNN pg_commit_ts 事务时间戳 pg_dynshmem 动态共享内存 pg_multixact 共享行锁 pg_notify pg_notify pg_logical 流复制相关，解码状态 pg_replslot 流复制相关，复制槽 pg_serial 事务相关 pg_snapshots 已导出的快照 pg_stat 统计信息 pg_stat_tmp 临时统计信息 pg_subtrans 子事务 pg_tblspc 用于 tablespaces 的链接，指向 base/NNN pg_twophase two phase commmit 相关 pg_wal WAL/xlong 崩溃恢复相关 pg_xact xact/clog 事务信息 postgresql.</description></item><item><title>VictoriaMetric 数据文件格式</title><link>https://blog.sasa.su/diary/timeseries_on_disk_format_2/</link><pubDate>Fri, 17 Jul 2020 11:47:48 +0800</pubDate><guid>https://blog.sasa.su/diary/timeseries_on_disk_format_2/</guid><description>VictoriaMetric 的数据文件基本仿照 ClickHouse 的格式。
+去除掉允许改表的结构，加一层 TSID 的索引为时序特性特化。
+类似于有两个字段的表：timestamp 和 values。
+timestamp 基本等价 timestamp BigInteger Codec(DoubleDelta) values 基本等价 values Float64 Codec(Gorilla) 数据由 timestamp.bin / values.bin / index.bin / metaindex.bin 组成。
+TSID 即唯一 ID，ID 由 MetricGroup / JobID / InstanceID / MetricID 组成。
+即 prometheus 中固定存在的 __name__, job, instance 三个 tag 字符串做 xxhash64 截断拿到 id 上。
+id 为定长 24byte。
+MetricGroup / JobID / InstanceID 三个 tag 有明显的层级结构。
+MetricID 为自增的原子变量，起点为服务启动时的纳秒值。
+TSID: 24 byte MetricGroup: 8 byte JobIB: 4 byte InstanceID: 4 byte MetricID: 8 byte Part 一个 part 由 timestamp.</description></item><item><title>influxdb 与 prometheus 的数据文件格式比较</title><link>https://blog.sasa.su/diary/timeseries_on_disk_format/</link><pubDate>Wed, 15 Jul 2020 12:08:41 +0800</pubDate><guid>https://blog.sasa.su/diary/timeseries_on_disk_format/</guid><description>influxdb 的 time structure merge tree time structure merge tree 现在的实现是 tsm1
+数据文件有三种：wal / tsm / tombstone
+tombstone 其中 tombstone 是墓碑，用来标识某数据是否删除。实际上时序数据库都是不支持删除数据的，这个文件结构可以忽略。这个文件的格式在 tombstone
+wal wal 就是常规的 wal，每条数据如下
+┌────────────────────────────────────────────────────────────────────┐ │ WriteWALEntry │ ├──────┬─────────┬────────┬───────┬─────────┬─────────┬───┬──────┬───┤ │ Type │ Key Len │ Key │ Count │ Time │ Value │...│ Type │...│ │1 byte│ 2 bytes │ N bytes│4 bytes│ 8 bytes │ N bytes │ │1 byte│ │ └──────┴─────────┴────────┴───────┴─────────┴─────────┴───┴──────┴───┘ 需要注意的是这是一个 entry 的格式，一个 wal 由多个 entry 组成。</description></item><item><title>写出无入侵的链路追踪 go sdk 是不可能的</title><link>https://blog.sasa.su/diary/fuck_go_stack_management/</link><pubDate>Sun, 14 Jul 2019 17:31:08 +0800</pubDate><guid>https://blog.sasa.su/diary/fuck_go_stack_management/</guid><description>目标 现在，在你的面前有一坨二进制和这一坨符号表。现在你想获得二进制中某个库函数的运行时间、以及函数调用时传入和返回的参数，最后还需要关联两个进程之间的线程。
+我们从一个应用程序的生命周期开始入手，找出一个合适的方式植入一个链路追踪 sdk。
+程序编译时 大多数网络程序都会使用某种网络库，只需要在编译或者链接时将 lib 替换掉，收到 rpc 时将调用特征保存进 thread local，发送 rpc 时继续将 thread local 传递即可。
+在 c/c++ 的世界里只需要改掉编译系统的 lib 即可。对于 c++ 模板来说需要在编译前修改，有点难以推行但不是问题、对于 c 来说只需要一个 LD_PRELOAD 环境变量替换掉运行库即可。
+但是大多数 go 程序使用 vendor 管理依赖，将依赖作为自己代码的一部分，在不修改 go 编译器和用户代码的情况下没法修改运行库。编译时进行修改的计划失败了。
+ld 载入二进制时 操作系统在运行程序前还有一步解决符号重定位的步骤。但是 Go 使用静态链接，不进行这一步。一棒子打死。
+修改二进制 万幸，Go 有选项可以强制使用动态链接，尽管它并没有动态链接任何东西。所以给了我们使用 __constructor__ 来在 Go 启动前修改内存中的二进制的能力。
+修改二进制有多种方法，可以去读一下 x86 API Hooking Demystified 1。
+因为我想获取和传递调用特征，所以替换运行时的网络库是最方便的。
+在 x86 平台中 Go 使用 call 来调用一个函数，使用 ret 从函数中返回。这符合 X86 CPU 的工作方式，Go 没作出什么反直觉的改变。所以我想直接在函数头部放一个 jmp 来跳转到新的库函数上。
+当然也有其他的方法，比如以可以塞一个 int3 在某个地方，然后在内核里或者进 debuger 里处理，也可以魔改二进制跳来跳去。直接一个 long jump 把函数换掉或许是最简单的。</description></item><item><title>对静态连接也有效的伪装终端</title><link>https://blog.sasa.su/diary/fuck_go_syscall/</link><pubDate>Sat, 11 May 2019 13:20:02 +0800</pubDate><guid>https://blog.sasa.su/diary/fuck_go_syscall/</guid><description>许多程序在输出日志时会区分目的地是不是一个终端，如果目标是终端则输出人类友好的日志格式，如果不是终端则输出机器友好的日志格式。 同样，如果某程序设计在终端中使用，将文件重定向到 stdin 时程序会显示警告，或者直接罢工。
+但是，有时候我们想使用管道来同时查看和保存日志的输出。类似 ls | tee log.save，此时这些程序就一点也不友好了。
+这些大多数程序使用 libc 内置的 isatty 函数来判断某个文件描述符是不是一个终端。 在理想情况下简单地使用 LD_PRELOAD 覆盖掉 isatty 函数就可以了。 像是 stdoutisatty 就是这样子实现的。 这样子兼容性最好，性能也最好。
+少数程序会判断文件描述符号的缓冲模式，来判断是否是一个终端。 如果文件描述符是行缓冲，则输出机器友好的格式；如果描述符是无缓冲，则使用人类友好的格式并更快速地打印日志。 这种情况下在 shell 对新的可执行文件执行 exec 前调整终端或文件的缓冲模式即可。
+最麻烦的是静态连接 libc 或者直接进行系统调用的程序。
+全静态连接的软件不太常见，现在最常见的应该是某语言写的命令行工具。
+在这种类型的语言生态中完全由自己完成系统调用，不触碰 libc。 甚至有人重写了 libc 中的 isatty 函数，使其更方便的直接进行系统调用。
+go 的标准库 golang.org/x/crypto/ssh/terminal 都直接进行系统调用，导致使用标准库的日志库 logrus 也不能通过 hook libc 解决。
+libc 中的 isatty 使用 tcgetattr 获取终端属性，如果成功则认为此文件描述符是一个终端。tcgetattr 最终会使用 ioctl 系统调用，获取终端属性。
+go-isatty 直接向 ioctl 传入 TIOCGETA 获取终端属性。它直接进行 syscall，我们在非特权下没有任何 hook 的余地。
+万幸，Linux 中有一个无须特权就可以使用的伪终端驱动，它对终端属性有关的系统调用全部返回成功，不设置任何东西。</description></item><item><title>用 podman 代替 docker</title><link>https://blog.sasa.su/diary/replacing_docker_with_podman/</link><pubDate>Sat, 20 Apr 2019 20:11:26 +0800</pubDate><guid>https://blog.sasa.su/diary/replacing_docker_with_podman/</guid><description>各种容器的实现简直和 UNIX 一样乱七八糟
+并且全是用 Go 写的 (???
+podman 背后由 Red Hat 支持，有望成为支持各发行版自带的容器管理实现
+类似的先例是 pulseaudio, systemd 和未来的 wayland
+podman 目标不是容器编排，可以使用更专业的 openshift/k8s 进行容器编排
+使用 把 alias docker podman 添加到你的 sh rc 文件 非 root 使用 sysctl -w kernel.unprivileged_userns_clone=1 安装 slirp4netns ，这个程序提供 root less 时的网络命名空间 参照 subuid(5) 的提示编写你的 /etc/subuid 和 /etc/subgid 文件，这个文件提供 uid 与 gid 映射 或者按照 podman 官方的推荐运行 sudo usermod --add-subuids 10000-75535 $(whoami) 我是这样写的
+# cat /etc/subuid sa:10000:500 # cat /etc/subgid sa:500:50 标识 sa 用户可以使用从 100000 开始的 500 各 uid 和从 500 开始的 50 个 gid</description></item><item><title>如何滥用 protobuf</title><link>https://blog.sasa.su/diary/how_to_abuse_protoc/</link><pubDate>Wed, 07 Nov 2018 22:44:35 +0800</pubDate><guid>https://blog.sasa.su/diary/how_to_abuse_protoc/</guid><description>从几年前开始, 一个流行的趋势是 web 框架自带序列化反序列化, 同时也不内嵌某种模板语言, 而是直接输出 json, 甚至有一些专做这个的框架, 比如 serde. 这样不仅方便 app 们用 native 的代码去解析后端给的数据, 同时也满足了前端工程化的愿望.
+这些框架大概是这么用的
+// rocket (rust) #[derive(Deserialize)] struct Task { description: String, complete: bool } #[post(&amp;#34;/todo&amp;#34;, data = &amp;#34;&amp;lt;task&amp;gt;&amp;#34;)] fn new(task: Json&amp;lt;Task&amp;gt;) -&amp;gt; String { ... } // spring (java) @Data class Task { public String description; public bool complete; } @Controller public class FuckJavaController { @PostMapping(&amp;#34;/todo&amp;#34;) public String new(@RequestParam(name=&amp;#34;task&amp;#34;, required=true) Task task) { ... } } 看起来很美好, 调用很干净.</description></item><item><title>如何在公司办公室里远程工作</title><link>https://blog.sasa.su/diary/how_to_work_remotely_in_office/</link><pubDate>Mon, 23 Jul 2018 09:40:29 +0800</pubDate><guid>https://blog.sasa.su/diary/how_to_work_remotely_in_office/</guid><description>如果你家里用一个 NAS 的话会很自然地想到我能不能在地铁上用手机浏览阅览 NAS 上的内容. 如果你上班时必须使用公司发的 Mac 的话能随时访问家里运行 Linux 的笔记本就变成了一个很强的需求. 很自然的就会想到用 VPN, 先列一下需求再来决定该用什么样子的 VPN
+是个 VPN 加密 多平台支持 可扩展性 可批量部署 起码能跑 50MiB/s, 要高于常见设备的 Wifi 速度 能局域网和公网混用 使用这个 VPN 的流程应该是
+部署 VPN 服务器 分发配置 每个客户端启动 VPN client, 加一条 /24 的路由指向 VPN server 某些情况下再加一条 /0 路由, 启动全局 VPN 在两个 client 互相可见的情况下直接通讯, 不可见时才通过 VPN server 通讯 这第 5 条需求叫做 mesh net, 常见于无线通讯等两个 client 可能互相看不见的情况 WIKI, 以前用 ZigBee 接触过这种网络结构, 但那时用的 SDK 封装的很完全, 我只管发包就好.</description></item><item><title>Hawk</title><link>https://blog.sasa.su/private/hawk/</link><pubDate>Thu, 28 Jun 2018 22:58:46 +0800</pubDate><guid>https://blog.sasa.su/private/hawk/</guid><description>PDF
+目标 吞吐量 延迟 资源利用率 QoS
+在 Sparrow 之前 一个 job 下分好多个 Task, 都交给一个中心调度器调度.
+中心调度器了解一切, 调度开销大.
+利于: 利用率, 吞吐量 不利: 延迟
+Hawk 的前辈 Sparrow 调度器分成了多个, Job 随机选择调度器调度.
+Sparrow 调度器随机选择两个 Worker 发送 per-task, 获取 Worker 的等待队列长度 选小的那个发送 Job 利于: 延迟, 异构计算 不利: 大 job 小 job 混搭会有巨大延迟, 调度器监控几个 Worker 不好调参
+Hawk 大任务走中心调度器, 小任务走分布式调度器
+Sparrow 的方法 偷工作, Work 去主动把其他 Work 的等待队列里的活倒序拿过来 资源保留, 一小部分资源只留给短作业 (10-20%) 总结 都是一个组做的, 基本上只适合 Spark SQL 这样的小作业</description></item><item><title>Low Latency Scheduling via Docker</title><link>https://blog.sasa.su/private/low-latency-scheduling-via-docker/</link><pubDate>Thu, 28 Jun 2018 22:53:30 +0800</pubDate><guid>https://blog.sasa.su/private/low-latency-scheduling-via-docker/</guid><description>PDF slide
+现象 过长的作业占用了大量资源, 短作业没法调度 普遍实现是杀掉长作业空出资源 主流的框架不支持抢占 框架 年份 做法 缺点 YARN 13年 杀了长作业 overhead太大 Sparrow 13 per-task 没有作者想要的抢占 Hawk 15 保留一部分机器 很难预计保留多少 Natjam 13 checkpoint 存档的频率 Amoeba 12 checkpoint 存档的频率 CRIU 15 按序存档 入侵性太强 Borg 15 任务隔离 还是killbase kill-base 实现在 spark 中大概 80% 左右的overhead, mapreduce 中对于 map-heavy 是10% 对reduce-heavy 是50%.</description></item><item><title>Resource Central SOSP17</title><link>https://blog.sasa.su/private/resource-central-sosp17/</link><pubDate>Thu, 28 Jun 2018 10:24:24 +0800</pubDate><guid>https://blog.sasa.su/private/resource-central-sosp17/</guid><description>PDF
+数据集 120G
+介绍了 Azure 中的虚拟机使用情况, 用帐号的偏好做了个决策树
+类型 IaaS 和 PaaS 数量比为 47:53 占用资源比为 23:77
+PaaS按使用量计费, 买使用量比买设备便宜.
+96%的账户只会创建一种虚拟机, 用IaaS的不用 PaaS (why?
+利用率 基本在 45%-60%, 第三方利用率高于第一方(不要钱随便用就会浪费系列), 25%的第三方虚拟机利用率极高(挖矿的吧)
+60%的人会选择 1c2g 的配置, 普遍偏好小机器
+规模 90%的账户同时创建的虚拟机数小于15
+生存时间 90% 的虚拟机生存时间小于24小时, 50%的小于1小时. 超过一天的虚拟机就会活很久, 生存时间与资源利用率没有强关联
+复杂分类 FT找周期, 有周期的是延迟敏感, 没有的是延迟不敏感, 有90%的正确率
+相关性</description></item><item><title> Performance-Aware Fair Scheduling</title><link>https://blog.sasa.su/private/paf/</link><pubDate>Wed, 27 Jun 2018 21:31:42 +0800</pubDate><guid>https://blog.sasa.su/private/paf/</guid><description>PDF
+现象 slot 数量和作业完成时间不是线性关系
+原因 task packing JVM warming up 前提 完全并行, 使用computer slot 满载 定义 Job Completion Time (JCT) Progress Rate = $Shortest\ JCT \over JCT\ with\ the\ allocated\ slots$ 优化 $$ \max_{ x\overrightarrow = (x_1,x_2,&amp;hellip;,x_n) } \sum_i{p_i(x_i)} $$ $$ subject\ to\ p_i(x_i) \ge a*p_i(f_i), i=1,&amp;hellip;,n $$ 其中 $a$ 是一个叫做牺牲度的参数
+实现 输入progress rate 曲线, 贪心一下
+先进行一个公平调度, 然后两边匀一下
+结果 $ a=0.9$ progress rate 从 0.</description></item><item><title>Blog Paste</title><link>https://blog.sasa.su/note/blog_paste/</link><pubDate>Thu, 01 Jan 1970 00:00:00 +0000</pubDate><guid>https://blog.sasa.su/note/blog_paste/</guid><description>随便说几句话 A Summary of Cloud Scheduling
+Android Binary XML
+生成 Markdown 表格
+无论用什么系统, 一定要有一个 okular, 就算编译 4 个小时也值得. &amp;mdash; 使用 Mac 的第二周
+tig 和 lazygit</description></item><item><title>About Sasasu</title><link>https://blog.sasa.su/about/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://blog.sasa.su/about/</guid><description>hating golang but writing golang</description></item></channel></rss>

@@ -1,0 +1,74 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>写出无入侵的链路追踪 go sdk 是不可能的 | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>写出无入侵的链路追踪 go sdk 是不可能的</span></h1><h2 class=date>2019/07/14</h2></div><main><h1 id=目标>目标</h1><p>现在，在你的面前有一坨二进制和这一坨符号表。现在你想获得二进制中某个库函数的运行时间、以及函数调用时传入和返回的参数，最后还需要关联两个进程之间的线程。</p><p>我们从一个应用程序的生命周期开始入手，找出一个合适的方式植入一个链路追踪 sdk。</p><h1 id=程序编译时>程序编译时</h1><p>大多数网络程序都会使用某种网络库，只需要在编译或者链接时将 lib 替换掉，收到 rpc 时将调用特征保存进 thread local，发送 rpc 时继续将 thread local 传递即可。</p><p>在 c/c++ 的世界里只需要改掉编译系统的 lib 即可。对于 c++ 模板来说需要在编译前修改，有点难以推行但不是问题、对于 c 来说只需要一个 <code>LD_PRELOAD</code> 环境变量替换掉运行库即可。</p><p>但是大多数 go 程序使用 vendor 管理依赖，将依赖作为自己代码的一部分，在不修改 go 编译器和用户代码的情况下没法修改运行库。编译时进行修改的计划失败了。</p><h1 id=ld-载入二进制时>ld 载入二进制时</h1><p>操作系统在运行程序前还有一步解决符号重定位的步骤。但是 Go 使用静态链接，不进行这一步。一棒子打死。</p><h2 id=修改二进制>修改二进制</h2><p>万幸，Go 有选项可以强制使用动态链接，尽管它并没有动态链接任何东西。所以给了我们使用 <code>__constructor__</code> 来在 Go 启动前修改内存中的二进制的能力。</p><p>修改二进制有多种方法，可以去读一下 <a href=http://jbremer.org/x86-api-hooking-demystified/>x86 API Hooking Demystified</a> <sup id=fnref:1><a href=#fn:1 class=footnote-ref role=doc-noteref>1</a></sup>。</p><p>因为我想获取和传递调用特征，所以替换运行时的网络库是最方便的。</p><p>在 x86 平台中 Go 使用 <code>call</code> 来调用一个函数，使用 <code>ret</code> 从函数中返回。这符合 X86 CPU 的工作方式，Go 没作出什么反直觉的改变。所以我想直接在函数头部放一个 jmp 来跳转到新的库函数上。</p><p>当然也有其他的方法，比如以可以塞一个 int3 在某个地方，然后在内核里或者进 debuger 里处理，也可以魔改二进制跳来跳去。直接一个 long jump 把函数换掉或许是最简单的。</p><p>要把函数换掉首先要知道函数的地址，使用 dlopen 然后 dlsym 就可以获取函数的地址，然而不幸的是 Go 的所有函数均没有导出，没法用 libc 提供的东西了。</p><p>Linux 系统中使用 dlopen 实际上是用 mmap 把文件装进内存并用 memprotect 设置一些属性。即便 lib 编译时使用了 pie ，在 linking 之后整个内存依旧是连续的。各个地址的相对值不会发生变化。</p><p>所以我们首先需要手动从符号表中分析出某个函数的首地址偏移量，在 dlopen 之后再计算出 .so 的基地址，再算出函数的开始地址，将函数开头塞入一个 jmp 并跳入一个新的 Go 函数，干该干的事情最后用 ret 返回。</p><p>x86 使用变长指令集，实际上在 64 位中并没有能直接跳 64 位的指令。所以 long jump 实际上是一个 push + ret，一共需要 6 个 byte。</p><p>几乎所有的 Go 函数开头都是 <code>mov + cmp + jbe</code>，然后去检测栈是否需要扩容，放入 6 byte 的代码没有任何问题，使用 4byte 的栈一般没啥问题。但实际上还是我栽在了编译器插入的这段代码里。</p><p>在查阅 go abi 规范后得知：Go 不使用任何寄存器传递参数，参数全靠栈。可以放心大胆的使用一个寄存器。</p><p>最后实现的代码长这样：</p><p><a href=https://gist.github.com/Sasasu/46175f37bd233e72c81636583809cdba>https://gist.github.com/Sasasu/46175f37bd233e72c81636583809cdba</a></p><h2 id=栽了>栽了</h2><p>然而结局想当无情，Go 崩溃了</p><pre><code>[Step 1] finding Go's http/net.Get
+self dl base 0x55fb87964000
+self func printer is 0x55fb87c838c0
+[Step 2] finding hook's http/net.Get
+hook dl base 0x7fcf3ed23000
+hook func printer is 0x7fcf3f260c50
+[Step 3] open memeory
+self memeory page base is 0x55fb87c83000
+[Step 4] inject the code
+jump from 0x55fb87c838c0 to 0x7fcf3f260c50, offset = 0xb75dd38b inject done.
+0:  48 b8 00 00 7f
+5:  cf 3f 26 0c 50
+10: 50 c3
+Go Start
+unexpected fault address 0x0
+fatal error: fault
+[signal SIGSEGV: segmentation violation code=0x80 addr=0x0 pc=0x55b5fa2d38cb]
+
+goroutine 1 [running]:
+runtime.throw(0x55b5fa31a553, 0x5)
+	/usr/lib/go/src/runtime/panic.go:617 +0x74 fp=0xc0000bbec8 sp=0xc0000bbe98 pc=0x55b5fa114d04
+runtime.sigpanic()
+	/usr/lib/go/src/runtime/signal_unix.go:397 +0x405 fp=0xc0000bbef8 sp=0xc0000bbec8 pc=0x55b5fa129355
+runtime: unexpected return pc for net/http.Get called from 0x508c67ba0a7f0000
+stack: frame={sp:0xc0000bbef8, fp:0xc0000bbf00} stack=[0xc0000ba000,0xc0000bc000)
+000000c0000bbdf8:  0000000000000001  0000000000000000
+000000c0000bbe08:  000000c0000bbe48  000055b5fa115886 &lt;runtime.gwrite+166&gt;
+000000c0000bbe18:  0000000000000002  000055b5fa31a044
+000000c0000bbe28:  0000000000000001  000055b500000001
+000000c0000bbe38:  000000c0000bbeb5  0000000000000003
+000000c0000bbe48:  000000c0000bbe98  000055b5fa1160ac &lt;runtime.printstring+124&gt;
+000000c0000bbe58:  000055b5fa114ed9 &lt;runtime.fatalthrow+89&gt;  000000c0000bbe68
+000000c0000bbe68:  000055b5fa13d390 &lt;runtime.fatalthrow.func1+0&gt;  000000c000000180
+000000c0000bbe78:  000055b5fa114d04 &lt;runtime.throw+116&gt;  000000c0000bbe98
+000000c0000bbe88:  000000c0000bbeb8  000055b5fa114d04 &lt;runtime.throw+116&gt;
+000000c0000bbe98:  000000c0000bbea0  000055b5fa13d300 &lt;runtime.throw.func1+0&gt;
+000000c0000bbea8:  000055b5fa31a553  0000000000000005
+000000c0000bbeb8:  000000c0000bbee8  000055b5fa129355 &lt;runtime.sigpanic+1029&gt;
+000000c0000bbec8:  000055b5fa31a553  0000000000000005
+000000c0000bbed8:  0000000000000001  0000000000000000
+000000c0000bbee8:  000000c0000bbf88  000055b5fa2d38cb &lt;net/http.Get+11&gt;
+000000c0000bbef8: &lt;508c67ba0a7f0000 &gt;000055b5fa318e8c &lt;main.main+172&gt;
+000000c0000bbf08:  000055b5fa31c5b3  000000000000000e
+000000c0000bbf18:  0000000000000001  0000000000000009
+000000c0000bbf28:  0000000000000000  0000000000000000
+000000c0000bbf38:  0000000000000000  000000c0000bbf48
+000000c0000bbf48:  000055b5fa3fa020  000055b5fa45b350
+000000c0000bbf58:  000000c000082058  0000000000000000
+000000c0000bbf68:  0000000000000000  000000c0000bbf48
+000000c0000bbf78:  0000000000000001  0000000000000001
+000000c0000bbf88:  000000c0000bbf90  000055b5fa1166a4 &lt;runtime.main+532&gt;
+000000c0000bbf98:  000000c000082000  0000000000000000
+000000c0000bbfa8:  000000c000000000  0000000000000000
+000000c0000bbfb8:  0000000000000000  0000000000000000
+000000c0000bbfc8:  000000c000000180  0000000000000000
+000000c0000bbfd8:  000055b5fa1408e1 &lt;runtime.goexit+1&gt;  0000000000000000
+000000c0000bbfe8:  0000000000000000  0000000000000000
+000000c0000bbff8:  0000000000000000
+net/http.Get(0x55b5fa318e8c, 0x55b5fa31c5b3, 0xe, 0x1, 0x9)
+	/usr/lib/go/src/net/http/client.go:369 +0xb fp=0xc0000bbf00 sp=0xc0000bbef8 pc=0x55b5fa2d38cb
+</code></pre><p>报错的原因和那句 <code>unexpected fault address 0x0</code> 无关，主要原因在于 <code>unexpected return pc for net/http.Get called from 0x508c67ba0a7f0000</code>。</p><p>撇一眼地址，似乎没跳过去，64 位下 near return 会弹出 8 byte，指令为 c3。没有任何问题&mldr; 在目标函数头上放一个 int3 也能证明确实跳过去了。</p><p>于是现在代码在那里 panic 了完全没有头绪，只好去 issues 中找一找：</p><p><a href=https://github.com/golang/go/issues/23133>https://github.com/golang/go/issues/23133</a></p><p>这个 issues 是关于 plugin 在 mac os 上 panic 的，但可以参考。</p><p>Go 为了生成调用回溯，Go 会检查调用者的指针，在 runtime 里找不到对应的函数名时便会 panic。</p><p>我们死在了第二个 runtime 的入口。那句 unexpected return pc 是新 runtime 打出来的。</p><p>在对 Go api 有所了解之后发现 Go 的接收者，多返回值均为语法糖。</p><p><code>func (*Sa) F(int) (int, int)</code> 会变成 <code>func F(*Sa, int, int, int)</code> 原来多返回值是真的多返回值，而不是引入 Tuple 类型。</p><h2 id=尾声>尾声</h2><p>最后还是在原地放一个 int3，打个断点去 lldb 吧。</p><h1 id=google-怎么做的>Google 怎么做的？</h1><p>给程序做链路追踪应该是一个常见需求，为此我拜读了世界上第一篇链路追踪的论文 Dapper。</p><p>这篇论文中有这么一句话：</p><blockquote><p>In our environment, since all applications use thesame threading model, control flow and RPC system</p></blockquote><p>线程模型，控制流？？</p><p>哦。这就大概是 Go。</p><h1 id=appdynamics-是怎么做的>appDynamics 是怎么做的？</h1><p>大概是打了个断点进去。</p><section class=footnotes role=doc-endnotes><hr><ol><li id=fn:1 role=doc-endnote><p>X86 API Hooking Demystified <a href=http://jbremer.org/x86-api-hooking-demystified/>http://jbremer.org/x86-api-hooking-demystified/</a> <a href=#fnref:1 class=footnote-backref role=doc-backlink>&#8617;&#xfe0e;</a></p></li></ol></section></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

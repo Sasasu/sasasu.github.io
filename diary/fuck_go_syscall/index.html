@@ -1,0 +1,31 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>对静态连接也有效的伪装终端 | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>对静态连接也有效的伪装终端</span></h1><h2 class=date>2019/05/11</h2></div><main><p>许多程序在输出日志时会区分目的地是不是一个终端，如果目标是终端则输出人类友好的日志格式，如果不是终端则输出机器友好的日志格式。
+同样，如果某程序设计在终端中使用，将文件重定向到 stdin 时程序会显示警告，或者直接罢工。</p><p>但是，有时候我们想使用管道来同时查看和保存日志的输出。类似 <code>ls | tee log.save</code>，此时这些程序就一点也不友好了。</p><p>这些大多数程序使用 <code>libc</code> 内置的 <code>isatty</code> 函数来判断某个文件描述符是不是一个终端。
+在理想情况下简单地使用 <code>LD_PRELOAD</code> 覆盖掉 <code>isatty</code> 函数就可以了。
+像是 <a href=https://blog.lilydjwg.me/2013/7/9/pretend-that-stdout-is-a-tty.39922.html>stdoutisatty</a> 就是这样子实现的。
+这样子兼容性最好，性能也最好。</p><p>少数程序会判断文件描述符号的缓冲模式，来判断是否是一个终端。
+如果文件描述符是行缓冲，则输出机器友好的格式；如果描述符是无缓冲，则使用人类友好的格式并更快速地打印日志。
+这种情况下在 shell 对新的可执行文件执行 exec 前调整终端或文件的缓冲模式即可。</p><p>最麻烦的是静态连接 libc 或者直接进行系统调用的程序。</p><p>全静态连接的软件不太常见，现在最常见的应该是某语言写的命令行工具。</p><p>在这种类型的语言生态中完全由自己完成系统调用，不触碰 libc。
+甚至<a href=https://github.com/mattn/go-isatty>有人</a>重写了 libc 中的 <code>isatty</code> 函数，使其更方便的直接进行系统调用。</p><p>go 的标准库 <a href=https://github.com/golang/crypto/blob/master/ssh/terminal/util.go#L29>golang.org/x/crypto/ssh/terminal</a> 都直接进行系统调用，导致使用标准库的日志库 <a href=https://github.com/sirupsen/logrus>logrus</a> 也不能通过 hook libc 解决。</p><p>libc 中的 <code>isatty</code> 使用 <code>tcgetattr</code> 获取终端属性，如果成功则认为此文件描述符是一个终端。<code>tcgetattr</code> 最终会使用 <code>ioctl</code> 系统调用，获取终端属性。</p><p>go-isatty 直接向 <code>ioctl</code> 传入 <code>TIOCGETA</code> 获取终端属性。它直接进行 <code>syscall</code>，我们在非特权下没有任何 hook 的余地。</p><p>万幸，Linux 中有一个无须特权就可以使用的伪终端驱动，它对终端属性有关的系统调用全部返回成功，不设置任何东西。</p><p>所以我写了一个程序。创建伪终端，并强制子程序认为自己在终端输出。</p><p><a href=https://github.com/Sasasu/ColorThis>https://github.com/Sasasu/ColorThis</a></p><p>使用帮助：</p><div class=highlight><pre style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash>Usage: ColorThis &lt;option&gt; <span style=color:#f92672>[</span>application<span style=color:#f92672>]</span>
+where options are
+        -stdin:   make stdin is a tty
+        -stdout:  make stdout is a tty
+        -stderr:  make stderr is a tty
+        -hook:    hook libc<span style=color:#960050;background-color:#1e0010>&#39;</span>s isatty <span style=color:#66d9ef>function</span>
+                  NOTE: may not work well
+where application like
+                  ls / &lt;/dev/null 2&gt;/dev/null
+</code></pre></div><p>对于如果输入 <code>-stdin</code> <code>-stdout</code> <code>-stderr</code> 当中的任意一个，会创建一个对应的伪终端，并将伪终端向子进程传递。</p><p>同时，依然保留了前面介绍的使用 <code>LD_PRELOAD</code> 来覆盖 <code>isatty</code> 的方式。毕竟这种方式兼容性和性能都是最好的。</p><p>程序使用了 epoll，所以不兼容 Mac OS 和其他 BSD 系统。</p><p>这之后就可以帅气的运行</p><pre><code>ColorThis -stdin -stdout -stderr $SOME_FRIENDLLY_GO_APP $COMMAND 2&gt; colorfull_err_log.log &lt; input_from_terminal.txt | tee colorfull_log.log
+</code></pre><p>来同时做到保存彩色 log、复用输出流、脚本化输入。甚至，你可以在这里面打开 vim 这种级别的 tui 程序。</p><p>\w/</p></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

@@ -1,0 +1,50 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>如何滥用 protobuf | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>如何滥用 protobuf</span></h1><h2 class=date>2018/11/07</h2></div><main><p>从几年前开始, 一个流行的趋势是 web 框架自带序列化反序列化, 同时也不内嵌某种模板语言, 而是直接输出 json, 甚至有一些专做这个的框架, 比如 <a href=https://github.com/serde-rs/json>serde</a>. 这样不仅方便 app 们用 native 的代码去解析后端给的数据, 同时也满足了前端工程化的愿望.</p><p>这些框架大概是这么用的</p><div class=highlight><pre style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-rust data-lang=rust><span style=color:#75715e>// rocket (rust)
+</span><span style=color:#75715e></span><span style=color:#75715e>#[derive(Deserialize)]</span>
+<span style=color:#66d9ef>struct</span> <span style=color:#a6e22e>Task</span> {
+    description: String,
+    complete: <span style=color:#66d9ef>bool</span>
+}
+
+<span style=color:#75715e>#[post(</span><span style=color:#e6db74>&#34;/todo&#34;</span><span style=color:#75715e>, data = </span><span style=color:#e6db74>&#34;&lt;task&gt;&#34;</span><span style=color:#75715e>)]</span>
+<span style=color:#66d9ef>fn</span> <span style=color:#a6e22e>new</span>(task: <span style=color:#a6e22e>Json</span><span style=color:#f92672>&lt;</span>Task<span style=color:#f92672>&gt;</span>) -&gt; String { ... }
+</code></pre></div><div class=highlight><pre style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=color:#75715e>// spring (java)
+</span><span style=color:#75715e></span><span style=color:#a6e22e>@Data</span>
+<span style=color:#66d9ef>class</span> <span style=color:#a6e22e>Task</span> <span style=color:#f92672>{</span>
+    <span style=color:#66d9ef>public</span> String description<span style=color:#f92672>;</span>
+    <span style=color:#66d9ef>public</span> bool complete<span style=color:#f92672>;</span>
+<span style=color:#f92672>}</span>
+<span style=color:#a6e22e>@Controller</span>
+<span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>FuckJavaController</span> <span style=color:#f92672>{</span>
+    <span style=color:#a6e22e>@PostMapping</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;/todo&#34;</span><span style=color:#f92672>)</span>
+    <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>new</span><span style=color:#f92672>(</span><span style=color:#a6e22e>@RequestParam</span><span style=color:#f92672>(</span>name<span style=color:#f92672>=</span><span style=color:#e6db74>&#34;task&#34;</span><span style=color:#f92672>,</span> required<span style=color:#f92672>=</span><span style=color:#66d9ef>true</span><span style=color:#f92672>)</span> Task task<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#f92672>...</span> <span style=color:#f92672>}</span>
+<span style=color:#f92672>}</span>
+</code></pre></div><p>看起来很美好, 调用很干净. 但是使用 api 的肯定不止一种语言, 使用某种语言定义的结构另一种语言并不能直接使用, 对外服务一般会有专门的sdk, 对内服务则是谁用谁解析. 于是已经用代码结构化的数据又被重新定义了一边, app 们每次做新功能都要先等后端加字段, 甚至会多线程请求详情接口, qps爆炸.</p><p>解决这个问题需要有一种中立, 简单, 无逻辑的语言来定义数据结构, 并且这种语言可以编译成其他的语言. protobuf 不仅是一种传输协议, 它还有一个 DSL, 刚好可以用来做这件事.</p><p>所以我想滥用一下 protobuf, 只用它定义结构, 不是用传输协议.</p><p>protobuf 的编译器叫做 protoc, 它从参数总找输入的 .proto 文件, 向插件的 stdin 输入编译好的proto文件, 从插件的 stdout 读输出的代码, 然后写入对映的文件. protobuf 有两种 syntax, 协议层互相兼容. 3比2少了很多东西, 但结构完全相同, 只支持 syntax3 的话就是少处理几种 option 而已. 里面还有一点疑似 protobuf1 的东西, 感觉整个 protobuf 应该是从xml上改过来的.</p><p>上面的代码用 protobuf 写就是这种样子</p><div class=highlight><pre style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-proto data-lang=proto>syntax <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;proto3&#34;</span>;<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>message</span> <span style=color:#a6e22e>Task</span> {<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>    <span style=color:#66d9ef>string</span> description;<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>    <span style=color:#66d9ef>bool</span> comlete;<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>}<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>message</span> <span style=color:#a6e22e>EmptyMessage</span> {}<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span><span style=color:#66d9ef>service</span> FuckProtocService{<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>    <span style=color:#66d9ef>rpc</span> new(Task) <span style=color:#66d9ef>returns</span> (EmptyMessage){<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>        (foo.bar.http) <span style=color:#f92672>=</span> {<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>            post<span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;/todo&#34;</span><span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>        }<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>    }<span style=color:#960050;background-color:#1e0010>
+</span><span style=color:#960050;background-color:#1e0010></span>}<span style=color:#960050;background-color:#1e0010>
+</span></code></pre></div><p>然后运行 protoc 调用插件就可以生成对映的其他语言代码.</p><p>传输的数据要求可读性时, 可以序列化成 json; 要求速度时可以直接用 protobuf; 最重要的是这一切对下层透明(虽说为了支持 oneof any 会带一个runtime)</p><p>实现还是有点坑, 我在这里列举一下</p><ol><li>json 类型太少了, http 东西太多了<ul><li>简单地水桶原理</li><li>为了兼容 json, protobuf 定义的几种类型都会被变成 number 类型</li><li>反序列化时只能尽力还原原本的信息 (大于64位的整数, 浮点数输出json的精度)</li><li>json 没有二进制, 传输层协议会变</li></ul></li><li>protoc 没有做 message 之间的依赖分析<ul><li>花10分钟写, 2小时debug</li></ul></li><li>看到很多 <strong>only for google internal usage</strong> 很不爽</li></ol></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

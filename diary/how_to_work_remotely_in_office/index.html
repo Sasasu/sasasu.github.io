@@ -1,0 +1,27 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>如何在公司办公室里远程工作 | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>如何在公司办公室里远程工作</span></h1><h2 class=date>2018/07/23</h2></div><main><p>如果你家里用一个 NAS 的话会很自然地想到我能不能在地铁上用手机浏览阅览 NAS 上的内容. 如果你上班时必须使用公司发的 Mac 的话能随时访问家里运行 Linux 的笔记本就变成了一个很强的需求.
+很自然的就会想到用 VPN, 先列一下需求再来决定该用什么样子的 VPN</p><ol><li>是个 VPN</li><li>加密</li><li>多平台支持</li><li>可扩展性</li><li>可批量部署</li><li>起码能跑 50MiB/s, 要高于常见设备的 Wifi 速度</li><li>能局域网和公网混用</li></ol><p>使用这个 VPN 的流程应该是</p><ol><li>部署 VPN 服务器</li><li>分发配置</li><li>每个客户端启动 VPN client, 加一条 <code>/24</code> 的路由指向 VPN server</li><li>某些情况下再加一条 <code>/0</code> 路由, 启动全局 VPN</li><li>在两个 client 互相可见的情况下直接通讯, 不可见时才通过 VPN server 通讯</li></ol><p>这第 5 条需求叫做 mesh net, 常见于无线通讯等两个 client 可能互相看不见的情况 <a href=https://en.wikipedia.org/wiki/Mesh_networking>WIKI</a>, 以前用 ZigBee 接触过这种网络结构, 但那时用的 SDK 封装的很完全, 我只管发包就好.</p><p>确定了需求之后选择软件</p><table><thead><tr><th>VPN 名字</th><th>为啥不行</th></tr></thead><tbody><tr><td>SS/V2Ray</td><td>不是个 VPN</td></tr><tr><td>裸 IPsec</td><td>山寨路由器不支持, 不知道怎么死的</td></tr><tr><td>OpenVPN</td><td>会被墙</td></tr><tr><td>L2TP</td><td>部署复杂, 山寨路由器上速度只有 3MiB/s</td></tr><tr><td>WireGuard</td><td>目前不支持 Mesh</td></tr></tbody></table><p>最后选择了 <a href=https://www.tinc-vpn.org/>tinc</a> 因为他们的 goals 就是我的需求</p><h2 id=搭建-tinc-网络>搭建 tinc 网络</h2><p>tinc 没有客户端和服务器端, 每个 tincd 都会监听一个 udp 端口, 接受其他 tincd 的链接</p><p>一个标准并完整的 tinc 配置文件长这样</p><pre><code>sa@mac /e/tinc&gt; tree
+.
+├── ed25519_key.priv
+├── hosts
+│   ├── mac
+│   ├── tx
+│   └── vultr
+├── rsa_key.priv
+├── tinc-up
+└── tinc.conf
+</code></pre><ul><li>tinc-up 是一个 shell 脚本, 用来添加网卡的 ip, 每个平台不同, Windows 下是 bat 脚本, 安卓则不读这个文件</li><li>以前的 tincd 还需要写 tinc-down 用来关闭网卡</li><li>tinc.conf 这里写 tincd 在启动时的配置具体参数 <code>man tinc.conf</code></li><li>hosts 写启动时信任的公钥</li></ul><p>网络拓扑图:</p><p><img src=/img/tinc/tinc_network.png alt></p><p>tinc 运行时有三种模式, 分别对应 hub switch router, 我这里运行模式全是 router, 所以需要手动配一下 ip, 上面拓扑图中的 ip 要同时写在系统的路由表(tinc-up)和 tinc 自己的路由表( host/*) 中.</p><p>拓扑图中的连线没有意义, 因为 mesh 网络会自动发现可以连接的设备, 我配置的 tincd 一开始都会去连接 vultr 和 tx 两台机器, 获取元数据后会开始和别的 tincd 互联.</p><p>值得一提的是 vultr 的 subnet 是 /0 原因是这样子当 tincd 运行时会把所有的包当做内网包, 从实现使用流程中的第4条.</p><p>我并没有把内网 ip 和 vpn 内 ip 整合, 虽然 tinc 内可以跑 dhcp 协议, 但并不是所有客户端都能运行 dhcp 客户端</p><h1 id=使用体验>使用体验</h1><p>tinc 有一套<a href=https://github.com/gsliepen/tinc/blob/master/doc/PROTOCOL>消息序号</a>, 所以只能用一个线程处理一个连接.</p><p>在 J1800 上使用 HTTP 下载文件, 最大速度是 65MiB/s 没有达到千兆, 此时 J1800 已经满载.</p><p>两台机器不互相通讯时连接建立的时间相当长, 但互相通讯时(哪怕只有一个 ping) 连接建立需要5-10秒, 直接体验就是 vpn 内拷贝文件前几秒速度只有3MiB/s, 然后飙升至65MiB/s</p><h1 id=如何在办公室远程工作>如何在办公室远程工作?</h1><pre><code>ssh sa@10.1.0.2  &quot;ssh mac@10.1.0.7&quot;
+sudo mount -t nfs -o resvport,rw 10.1.0.4:/data /private/nfs
+</code></pre></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>

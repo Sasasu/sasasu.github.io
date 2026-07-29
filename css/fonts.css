@@ -1,0 +1,12 @@
+body {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 19px;
+  line-height: 34.2px;
+}
+
+code {
+  display: inline-block;
+  font-family: "Fantasque Sans Mono", monospace;
+  font-size: 16px;
+  line-height: 18px;
+}

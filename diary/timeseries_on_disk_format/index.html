@@ -1,0 +1,165 @@
+<!doctype html><html lang=en-us><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>influxdb 与 prometheus 的数据文件格式比较 | 不为人知的幻想乡</title><link rel=stylesheet href=/css/style.css><link rel=stylesheet href=/css/fonts.css><link rel="shortcut icon" href=/favicon.png type=image/x-icon><link rel=icon href=/favicon.png type=image/x-icon><link href="https://fonts.googleapis.com/css?family=Noto+Serif+SC:400,700&display=swap&subset=chinese-simplified" rel=stylesheet><link href=/font/FantasqueSansMono-Regular-decl.css rel=stylesheet></head><body><nav><ul class=menu></ul><hr></nav><div class=article-meta><h1><span class=title>influxdb 与 prometheus 的数据文件格式比较</span></h1><h2 class=date>2020/07/15</h2></div><main><h2 id=influxdb-的-time-structure-merge-tree>influxdb 的 time structure merge tree</h2><p>time structure merge tree 现在的实现是 <a href=https://github.com/influxdata/influxdb/tree/master/tsdb/tsm1>tsm1</a></p><p>数据文件有三种：wal / tsm / tombstone</p><h3 id=tombstone>tombstone</h3><p>其中 tombstone 是墓碑，用来标识某数据是否删除。实际上时序数据库都是不支持删除数据的，这个文件结构可以忽略。这个文件的格式在 <a href=https://github.com/influxdata/influxdb/blob/master/tsdb/tsm1/tombstone.go>tombstone</a></p><h3 id=wal>wal</h3><p>wal 就是常规的 wal，每条数据如下</p><pre><code>┌────────────────────────────────────────────────────────────────────┐
+│                           WriteWALEntry                            │
+├──────┬─────────┬────────┬───────┬─────────┬─────────┬───┬──────┬───┤
+│ Type │ Key Len │   Key  │ Count │  Time   │  Value  │...│ Type │...│
+│1 byte│ 2 bytes │ N bytes│4 bytes│ 8 bytes │ N bytes │   │1 byte│   │
+└──────┴─────────┴────────┴───────┴─────────┴─────────┴───┴──────┴───┘
+</code></pre><p>需要注意的是这是一个 entry 的格式，一个 wal 由多个 entry 组成。</p><p>influxdb 在接口上是多值的，所以 time 和 value 会不断重复。</p><p>（是的！即便是多值模型， time 在 wal 中也会写入多份）。</p><p>value 根据最前面的 type 来决定长度：对常见的 f64 来说就是结结实实的 8 byte。</p><p>在 wal 的最外面还有一层 snappy 压缩，多个 wal entry 套上一层 snappy 后形成一个 wal file。</p><h3 id=tsm>tsm</h3><p>tsm 主要由 2 部分组成：blocks 和 index</p><p>对于 index 结构如下：</p><pre><code>┌────────────────────────────────────────────────────────────────────────────┐
+│                                   Index                                    │
+├─────────┬─────────┬──────┬───────┬─────────┬─────────┬────────┬────────┬───┤
+│ Key Len │   Key   │ Type │ Count │Min Time │Max Time │ Offset │  Size  │...│
+│ 2 bytes │ N bytes │1 byte│2 bytes│ 8 bytes │ 8 bytes │8 bytes │4 bytes │   │
+└─────────┴─────────┴──────┴───────┴─────────┴─────────┴────────┴────────┴───┘
+</code></pre><p>Index 居然是不定长的。</p><p>在 <a href=https://github.com/influxdata/influxdb/blob/master/tsdb/tsm1/DESIGN.md#indirect-mmap-indexing>DESIGN.md</a> 解释如何在不定长的 Index 上检索：</p><p>首先 mmap 整个 tsm 文件（或者只 mmap index 段）然后顺序扫描一遍，在内存中构建一个变长数组来保存 index 内的 offset：</p><pre><code>┌────────────────────────────────────────────────────────────────────┐
+│                               Index                                │
+├─┬──────────────────────┬──┬───────────────────────┬───┬────────────┘
+│0│                      │62│                       │145│
+├─┴───────┬─────────┬────┼──┴──────┬─────────┬──────┼───┴─────┬──────┐
+│Key 1 Len│   Key   │... │Key 2 Len│  Key 2  │ ...  │  Key 3  │ ...  │
+│ 2 bytes │ N bytes │    │ 2 bytes │ N bytes │      │ 2 bytes │      │
+└─────────┴─────────┴────┴─────────┴─────────┴──────┴─────────┴──────┘
+</code></pre><p>恩&mldr;.</p><p>启动时间超长。对于每个时间需要都需要读取 （33 + tag 个数）byte 的数据。</p><p>需要占用一些内存，其内存 index 的 value 全是 u64。</p><p>第二部分是 blocks：</p><pre><code>┌───────────────────────────────────────────────────────────┐
+│                          Blocks                           │
+├───────────────────┬───────────────────┬───────────────────┤
+│      Block 1      │      Block 2      │      Block N      │
+├─────────┬─────────┼─────────┬─────────┼─────────┬─────────┤
+│  CRC    │  Data   │  CRC    │  Data   │  CRC    │  Data   │
+│ 4 bytes │ N bytes │ 4 bytes │ N bytes │ 4 bytes │ N bytes │
+└─────────┴─────────┴─────────┴─────────┴─────────┴─────────┘
+</code></pre><p>每个 block 都是一个时间序列的数据，每个 block data 都跟着一个 crc checksum。</p><p>Data 段开头有一个 u8 的 type 字段，标识这段 Data 的类型。</p><p>随后有一个 varint int, 其中 time 所占的长度，以便于分割 time 与 value。</p><p>然后才是具体的数据，也就说 Data 段实际上是 <code>[type, length, times..., values...]</code> 这种格式</p><p>influxdb 在接口上是多值的，但是在 blocks 层面却是单值的。在 index 层是这样拼 key 的</p><div class=highlight><pre style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-go data-lang=go><span style=color:#75715e>// MIT License
+</span><span style=color:#75715e></span>
+<span style=color:#66d9ef>func</span> <span style=color:#a6e22e>AppendMakeKey</span>(<span style=color:#a6e22e>dst</span> []<span style=color:#66d9ef>byte</span>, <span style=color:#a6e22e>name</span> []<span style=color:#66d9ef>byte</span>, <span style=color:#a6e22e>tags</span> <span style=color:#a6e22e>Tags</span>) []<span style=color:#66d9ef>byte</span> {
+	<span style=color:#75715e>// unescape the name and then re-escape it to avoid double escaping.
+</span><span style=color:#75715e></span>	<span style=color:#75715e>// The key should always be stored in escaped form.
+</span><span style=color:#75715e></span>	<span style=color:#a6e22e>dst</span> = append(<span style=color:#a6e22e>dst</span>, <span style=color:#a6e22e>EscapeMeasurement</span>(<span style=color:#a6e22e>UnescapeMeasurement</span>(<span style=color:#a6e22e>name</span>))<span style=color:#f92672>...</span>)
+	<span style=color:#a6e22e>dst</span> = <span style=color:#a6e22e>tags</span>.<span style=color:#a6e22e>AppendHashKey</span>(<span style=color:#a6e22e>dst</span>)
+	<span style=color:#66d9ef>return</span> <span style=color:#a6e22e>dst</span>
+}
+
+<span style=color:#66d9ef>func</span> (<span style=color:#a6e22e>q</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>arrayCursorIterator</span>) <span style=color:#a6e22e>seriesFieldKeyBytes</span>(<span style=color:#a6e22e>name</span> []<span style=color:#66d9ef>byte</span>, <span style=color:#a6e22e>tags</span> <span style=color:#a6e22e>models</span>.<span style=color:#a6e22e>Tags</span>, <span style=color:#a6e22e>field</span> <span style=color:#66d9ef>string</span>) []<span style=color:#66d9ef>byte</span> {
+	<span style=color:#a6e22e>q</span>.<span style=color:#a6e22e>key</span> = <span style=color:#a6e22e>models</span>.<span style=color:#a6e22e>AppendMakeKey</span>(<span style=color:#a6e22e>q</span>.<span style=color:#a6e22e>key</span>[:<span style=color:#ae81ff>0</span>], <span style=color:#a6e22e>name</span>, <span style=color:#a6e22e>tags</span>)
+	<span style=color:#a6e22e>q</span>.<span style=color:#a6e22e>key</span> = append(<span style=color:#a6e22e>q</span>.<span style=color:#a6e22e>key</span>, <span style=color:#a6e22e>KeyFieldSeparatorBytes</span><span style=color:#f92672>...</span>)
+	<span style=color:#a6e22e>q</span>.<span style=color:#a6e22e>key</span> = append(<span style=color:#a6e22e>q</span>.<span style=color:#a6e22e>key</span>, <span style=color:#a6e22e>field</span><span style=color:#f92672>...</span>)
+	<span style=color:#66d9ef>return</span> <span style=color:#a6e22e>q</span>.<span style=color:#a6e22e>key</span>
+}
+</code></pre></div><p>可见 influxdb 是一个「列存 多值」的时序数据库（笑）</p><p>有多少个字段，时间就重复了多少次。</p><p>时序数据库的正确用法是写入时间间隔相等的数据点，这样数据库做 double delta 之后再套 zstd 后时间基本不占硬盘空间。</p><p>但是时序数据库非常容易滥用，使用多值表同时写入时间间隔不同的数据点对 influxdb 来说消耗很大。</p><h3 id=memory>memory</h3><p>tsm 作为一个类 log structure merge tree, 还需要一个内存结构，以提供随机写入和立刻读取的能力。</p><p>tsm 中这个结构叫 <a href=https://github.com/influxdata/influxdb/blob/master/tsdb/tsm1/ring.go>ring</a></p><p>这是一个二段 hash。</p><p>第一段不扩容，固定为 16，hash 函数为无参数的 xxhash。（笑）</p><p>第二段为 go 内建的 map, key 为不定长 byte, value 是个不定长数组。</p><p>一共两组锁，第二段 hash 一组，value 内一组。</p><p><code>ring</code> 会在内存中有两个实例，其中一个 <code>ring</code> 刷成 tsm 过程中新写入的数据会进入第二个 <code>ring</code></p><p><code>ring</code> 中的数据是不压缩的，按照时间戳顺序排序。</p><p>值得一提的是 <code>ring</code> 中的数据也是单值的，时间戳是不断重复的。</p><h2 id=prometheus-的-tsdb>prometheus 的 tsdb</h2><p>Prometheus 中的时序引擎就叫 tsdb. 使用的结构也类似 LSMT</p><p>其数据文件由 chunks index wal 三部分组成</p><h3 id=wal-1>wal</h3><p>wal 中的数据根据第一个 byte 分为 3 种：Series records，Sample records，Tombstone records</p><p>Tombstone records 不重要无需关心。</p><p>Series records 为 8 byte 的块内自增 ID 加所有 tagKV 的变长字符串。</p><p>Sample records 为 8 bytes 的块内自增 ID 加 8 byte 的 timestamp，变长的 id delta，变长的 timestamp delta，8 byte 的 value。</p><p>相比 influxdb 的好处是将 tagKV 与 value 分开存可以减少一些 IO 消耗，但实际上每次 scrape 之后都会写一次 WAL，很难说能减少 IO。</p><p>恢复 WAL 时使用了一个 map 来去重，速度不会快。</p><h3 id=index>index</h3><p>prometheus 的 index 包含了一个类似到排索引的结构。</p><p>分为如下几个段（废弃段略过不介绍）：</p><h4 id=symbol-table>Symbol Table</h4><p>是一个 string pool。类似 Android 中 XML resources。</p><p>存储变长字符串。后续所有的字符串均为 Symbol Table 的引用，所有引用均为 32 位。</p><pre><code>┌────────────────────┬─────────────────────┐
+│ len &lt;4b&gt;           │ num of symbols &lt;4b&gt; │
+├────────────────────┴─────────────────────┤
+│ ┌──────────────────────┬───────────────┐ │
+│ │ len(str_n) &lt;uvarint&gt; │ str_n &lt;bytes&gt; │ │
+│ └──────────────────────┴───────────────┘ │
+└──────────────────────────────────────────┘
+</code></pre><h4 id=series>Series</h4><p>保存所有的 TagKV 字符串，chunk 的个数与每个 chunk 的偏移量。</p><p>prometheus 在这里有个 series id 的概念，id 为此 series 在这个段中的偏移量除以 16。</p><p>其实就是偏移量。</p><pre><code>One series:
+┌──────────────────────────────────────────────────────────────────────────┐
+│ len &lt;uvarint&gt;                                                            │
+├──────────────────────────────────────────────────────────────────────────┤
+│ ┌──────────────────────────────────────────────────────────────────────┐ │
+│ │                     labels count &lt;uvarint64&gt;                         │ │
+│ ├──────────────────────────────────────────────────────────────────────┤ │
+│ │              ┌────────────────────────────────────────────┐          │ │
+│ │              │ ref(l_i.name) &lt;uvarint32&gt;                  │          │ │
+│ │              └────────────────────────────────────────────┘          │ │
+│ ├──────────────────────────────────────────────────────────────────────┤ │
+│ │                     chunks count &lt;uvarint64&gt;                         │ │
+│ ├──────────────────────────────────────────────────────────────────────┤ │
+│ │              ┌────────────────────────────────────────────┐          │ │
+│ │              │ c_0.mint &lt;varint64&gt;                        │          │ │
+│ │              ├────────────────────────────────────────────┤          │ │
+│ │              │ c_0.maxt - c_0.mint &lt;uvarint64&gt;            │          │ │
+│ │              ├────────────────────────────────────────────┤          │ │
+│ │              │ ref(c_0.data) &lt;uvarint64&gt;                  │          │ │
+│ │              └────────────────────────────────────────────┘          │ │
+│ └──────────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────┘
+</code></pre><h4 id=posting>Posting</h4><p>存储这个 TagKV 下所有的 series id。</p><pre><code>┌────────────────────┬────────────────────┐
+│ len &lt;4b&gt;           │ num of series &lt;4b&gt; │
+├────────────────────┴────────────────────┤
+│ ┌─────────────────────────────────────┐ │
+│ │ serie id &lt;4b&gt;  (offset in series)   │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+</code></pre><h4 id=posting-offset-table>Posting Offset Table</h4><p>存储这个 TagKV 到 posting 的 offset。</p><pre><code>┌─────────────────────┬──────────────────────┐
+│ len &lt;4b&gt;            │ num of entries &lt;4b&gt;  │
+├─────────────────────┴──────────────────────┤
+│ ┌──────────────────────┬─────────────────┐ │
+│ │ len(name) &lt;uvarint&gt;  │ name &lt;bytes&gt;    │ │
+│ ├──────────────────────┼─────────────────┤ │
+│ │ len(value) &lt;uvarint&gt; │ value &lt;bytes&gt;   │ │
+│ ├──────────────────────┴─────────────────┤ │
+│ │ offset to posting &lt;uvarint64&gt;          │ │
+│ └────────────────────────────────────────┘ │
+└────────────────────────────────────────────┘
+</code></pre><p>整体的思路是从 Posting Offset Table 出发，找到许多 Posting Offset，再找到许多 Series 再找到许多 Chunk Offset, 选择一堆 Cunk 读取。</p><p>但是 Posting Offset Table 是不定长的，没法进行二分搜索。</p><p>想必一定是在启动的是时候扫描 Posting Offset Table 构建一个可以二分搜索的结构。</p><p>内存开销不会小，启动时间不会短。并且字符串存了两次。</p><h4 id=chunk>Chunk</h4><p>时序数据的实际文件。</p><pre><code>┌───────────────┬───────────────────┬──────────────┬────────────────┐
+│ len &lt;uvarint&gt; │ encoding &lt;1 byte&gt; │ data &lt;bytes&gt; │ CRC32 &lt;4 byte&gt; │
+└───────────────┴───────────────────┴──────────────┴────────────────┘
+</code></pre><p>其 data 是 time 与 value 交替存储，time 做 double delta，value 做 teller 编码。</p><p>这地方也比较奇怪，time 一般来说是间隔相等的，所以会是一堆 0b。</p><p>time 与 value 交替存储会导致压缩率较低。</p><h4 id=memory-1>memory</h4><p>作为一个 LSMT，prometheus tsdb 也有内存部分，叫做 <a href=https://github.com/prometheus/prometheus/blob/master/tsdb/head.go>head</a></p><p>这个结构使用一个 chunk 数组来作为内存索引，series id 使用递增变量而不是 offset。</p><p>内存索引使用一个二段数组，第一段大小固定为 16384，第二段不定长。key 为 series tagKV 的 xxhash。value 为带状态的写入器。</p><p>恩&mldr; 一个简单地 hash table.</p><p>这个写入器直接以 on disk chunk 格式保存，带压缩。</p><p>搜索部分结构如下 <a href=https://github.com/prometheus/prometheus/blob/05038b48bdf08dd72731bfaf74c9f5e5eaff5f39/tsdb/index/postings.go>posting</a></p><div class=highlight><pre style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-go data-lang=go><span style=color:#75715e>// Copyright 2017 The Prometheus Authors
+</span><span style=color:#75715e>// Licensed under the Apache License, Version 2.0 (the &#34;License&#34;);
+</span><span style=color:#75715e>// you may not use this file except in compliance with the License.
+</span><span style=color:#75715e>// You may obtain a copy of the License at
+</span><span style=color:#75715e>//
+</span><span style=color:#75715e>// http://www.apache.org/licenses/LICENSE-2.0
+</span><span style=color:#75715e>//
+</span><span style=color:#75715e>// Unless required by applicable law or agreed to in writing, software
+</span><span style=color:#75715e>// distributed under the License is distributed on an &#34;AS IS&#34; BASIS,
+</span><span style=color:#75715e>// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+</span><span style=color:#75715e>// See the License for the specific language governing permissions and
+</span><span style=color:#75715e>// limitations under the License.
+</span><span style=color:#75715e></span>
+<span style=color:#66d9ef>type</span> <span style=color:#a6e22e>MemPostings</span> <span style=color:#66d9ef>struct</span> {
+	<span style=color:#a6e22e>mtx</span>     <span style=color:#a6e22e>sync</span>.<span style=color:#a6e22e>RWMutex</span>
+	<span style=color:#a6e22e>m</span>       <span style=color:#66d9ef>map</span>[<span style=color:#66d9ef>string</span>]<span style=color:#66d9ef>map</span>[<span style=color:#66d9ef>string</span>][]<span style=color:#66d9ef>uint64</span>
+	<span style=color:#a6e22e>ordered</span> <span style=color:#66d9ef>bool</span>
+}
+
+<span style=color:#66d9ef>func</span> (<span style=color:#a6e22e>p</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>MemPostings</span>) <span style=color:#a6e22e>Get</span>(<span style=color:#a6e22e>name</span>, <span style=color:#a6e22e>value</span> <span style=color:#66d9ef>string</span>) <span style=color:#a6e22e>Postings</span> {
+	<span style=color:#66d9ef>var</span> <span style=color:#a6e22e>lp</span> []<span style=color:#66d9ef>uint64</span>
+	<span style=color:#a6e22e>p</span>.<span style=color:#a6e22e>mtx</span>.<span style=color:#a6e22e>RLock</span>()
+	<span style=color:#a6e22e>l</span> <span style=color:#f92672>:=</span> <span style=color:#a6e22e>p</span>.<span style=color:#a6e22e>m</span>[<span style=color:#a6e22e>name</span>]
+	<span style=color:#66d9ef>if</span> <span style=color:#a6e22e>l</span> <span style=color:#f92672>!=</span> <span style=color:#66d9ef>nil</span> {
+		<span style=color:#a6e22e>lp</span> = <span style=color:#a6e22e>l</span>[<span style=color:#a6e22e>value</span>]
+	}
+	<span style=color:#a6e22e>p</span>.<span style=color:#a6e22e>mtx</span>.<span style=color:#a6e22e>RUnlock</span>()
+
+	<span style=color:#66d9ef>if</span> <span style=color:#a6e22e>lp</span> <span style=color:#f92672>==</span> <span style=color:#66d9ef>nil</span> {
+		<span style=color:#66d9ef>return</span> <span style=color:#a6e22e>EmptyPostings</span>()
+	}
+	<span style=color:#66d9ef>return</span> <span style=color:#a6e22e>newListPostings</span>(<span style=color:#a6e22e>lp</span><span style=color:#f92672>...</span>)
+}
+
+<span style=color:#66d9ef>func</span> (<span style=color:#a6e22e>p</span> <span style=color:#f92672>*</span><span style=color:#a6e22e>MemPostings</span>) <span style=color:#a6e22e>addFor</span>(<span style=color:#a6e22e>id</span> <span style=color:#66d9ef>uint64</span>, <span style=color:#a6e22e>l</span> <span style=color:#a6e22e>labels</span>.<span style=color:#a6e22e>Label</span>) {
+	<span style=color:#a6e22e>nm</span>, <span style=color:#a6e22e>ok</span> <span style=color:#f92672>:=</span> <span style=color:#a6e22e>p</span>.<span style=color:#a6e22e>m</span>[<span style=color:#a6e22e>l</span>.<span style=color:#a6e22e>Name</span>]
+	<span style=color:#66d9ef>if</span> !<span style=color:#a6e22e>ok</span> {
+		<span style=color:#a6e22e>nm</span> = <span style=color:#66d9ef>map</span>[<span style=color:#66d9ef>string</span>][]<span style=color:#66d9ef>uint64</span>{}
+		<span style=color:#a6e22e>p</span>.<span style=color:#a6e22e>m</span>[<span style=color:#a6e22e>l</span>.<span style=color:#a6e22e>Name</span>] = <span style=color:#a6e22e>nm</span>
+	}
+	<span style=color:#a6e22e>list</span> <span style=color:#f92672>:=</span> append(<span style=color:#a6e22e>nm</span>[<span style=color:#a6e22e>l</span>.<span style=color:#a6e22e>Value</span>], <span style=color:#a6e22e>id</span>)
+	<span style=color:#a6e22e>nm</span>[<span style=color:#a6e22e>l</span>.<span style=color:#a6e22e>Value</span>] = <span style=color:#a6e22e>list</span>
+
+	<span style=color:#66d9ef>if</span> !<span style=color:#a6e22e>p</span>.<span style=color:#a6e22e>ordered</span> {
+		<span style=color:#66d9ef>return</span>
+	}
+	<span style=color:#75715e>// There is no guarantee that no higher ID was inserted before as they may
+</span><span style=color:#75715e></span>	<span style=color:#75715e>// be generated independently before adding them to postings.
+</span><span style=color:#75715e></span>	<span style=color:#75715e>// We repair order violations on insert. The invariant is that the first n-1
+</span><span style=color:#75715e></span>	<span style=color:#75715e>// items in the list are already sorted.
+</span><span style=color:#75715e></span>	<span style=color:#66d9ef>for</span> <span style=color:#a6e22e>i</span> <span style=color:#f92672>:=</span> len(<span style=color:#a6e22e>list</span>) <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>; <span style=color:#a6e22e>i</span> <span style=color:#f92672>&gt;=</span> <span style=color:#ae81ff>1</span>; <span style=color:#a6e22e>i</span><span style=color:#f92672>--</span> {
+		<span style=color:#66d9ef>if</span> <span style=color:#a6e22e>list</span>[<span style=color:#a6e22e>i</span>] <span style=color:#f92672>&gt;=</span> <span style=color:#a6e22e>list</span>[<span style=color:#a6e22e>i</span><span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>] {
+			<span style=color:#66d9ef>break</span>
+		}
+		<span style=color:#a6e22e>list</span>[<span style=color:#a6e22e>i</span>], <span style=color:#a6e22e>list</span>[<span style=color:#a6e22e>i</span><span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>] = <span style=color:#a6e22e>list</span>[<span style=color:#a6e22e>i</span><span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>], <span style=color:#a6e22e>list</span>[<span style=color:#a6e22e>i</span>]
+	}
+}
+</code></pre></div><p>恩&mldr;</p><p>行吧，能用。</p></main><footer><script type=text/x-mathjax-config>
+MathJax.Hub.Config({
+  tex2jax: {
+    inlineMath: [['$','$'], ['\\(','\\)']],
+    displayMath: [['$$','$$'], ['\[','\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    TeX: { equationNumbers: { autoNumber: "AMS" },
+         extensions: ["AMSmath.js", "AMSsymbols.js"] }
+  }
+});
+
+!function(e,n,t){for(var o,a,i,c,r,d="https://google-analytics.com/collect",s=n.hostname.split("."),l=e.cookie.match(/(^|; ?)_ga=GA1\.\d\.(\d+\.\d+)(;|$)/),h=l?l[2]:~~(2e9*Math.random())+"."+~~(Date.now()/1e3),g=s.length;g--&&(r="_ga=GA1."+(s.length-g)+"."+h,e.cookie=r+";max-age=63115200;domain="+s.slice(g).join("."),-1==e.cookie.split(/; ?/).indexOf(r)););track=((r,s,l,g,p)=>{if(o={v:1,tid:"UA-171813489-1",aip:1,cid:h,t:r,dr:e.referrer,dt:e.title,dl:n.href,ul:t.language.toLowerCase(),sr:screen.width+"x"+screen.height,vp:innerWidth+"x"+innerHeight},s&&(o.ec=s),l&&(o.ea=l),g&&(o.el=g),p&&(o.ev=p),t.sendBeacon)t.sendBeacon(d,new URLSearchParams(o));else{for(c in a=[],i=new XMLHttpRequest,o)a.push(k+"="+encodeURIComponent(o[c]));i.open("POST",d),i.send(a.join("&"))}}),track("pageview")}(document,location,navigator);
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-MML-AM_CHTML" async></script></footer></body></html>
